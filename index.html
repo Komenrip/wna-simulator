@@ -6,15 +6,38 @@
     <title>WNA Simulator: Expat Odyssey Online</title>
     <!-- Inline SVG Favicon to eliminate 404 error -->
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
-    <meta http-equiv="Permissions-Policy" content="interest-cohort=(), attribution-reporting=(), private-aggregation=(), join-ad-interest-group=(), run-ad-auction=(), browsing-topics=()">
     <!-- FontAwesome icons -->
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <!-- Google Fonts -->
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDKs for Real-time Multiplayer -->
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <!-- Firebase SDK v11 Initialization -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getDatabase, ref, set, get, onValue, child, push, update } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-database.js";
+
+        const firebaseConfig = typeof __firebase_config !== 'undefined' 
+            ? JSON.parse(__firebase_config) 
+            : { databaseURL: "https://wna-simulator-default-rtdb.firebaseio.com/" };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getDatabase(app);
+
+        // Expose globally for game logic with robust connection fallback
+        window.FB_DB = db;
+        window.FB_REF = ref;
+        window.FB_SET = set;
+        window.FB_GET = get;
+        window.FB_ON = onValue;
+
+        signInAnonymously(auth).then(() => {
+            console.log("Firebase Auth Anonymous Success");
+        }).catch(err => {
+            console.warn("Auth warning (using local fallback mode if needed):", err);
+        });
+    </script>
     <script>
         tailwind.config = {
             theme: {
@@ -43,6 +66,12 @@
             background-color: #090D16;
             color: #F8FAFC;
             user-select: none;
+            -webkit-user-select: none;
+        }
+
+        input, textarea, select {
+            -webkit-user-select: text;
+            user-select: text;
         }
 
         .monopoly-board {
@@ -120,7 +149,7 @@
             justify-content: center;
             align-items: center;
             position: relative;
-            border: 2px stroke #334155;
+            border: 2px solid #334155;
             padding: 1.5rem;
         }
 
@@ -130,15 +159,15 @@
             border-radius: 50%;
             border: 2px solid white;
             box-shadow: 0 0 6px rgba(0,0,0,0.8);
-            position: absolute;
+            flex-shrink: 0;
             transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
             z-index: 20;
         }
 
-        .p-0 { background-color: #EF4444; }
-        .p-1 { background-color: #3B82F6; }
-        .p-2 { background-color: #10B981; }
-        .p-3 { background-color: #F59E0B; }
+        .token-0 { background-color: #EF4444; }
+        .token-1 { background-color: #3B82F6; }
+        .token-2 { background-color: #10B981; }
+        .token-3 { background-color: #F59E0B; }
 
         .dice-container {
             perspective: 1000px;
@@ -278,7 +307,7 @@
                         <span id="dice-timer-text" class="font-mono">10s</span>
                     </div>
                     <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
-                        <div id="dice-timer-progress" class="bg-gradient-to-r from-amber-500 to-rose-500 h-full w-full transition-all duration-1000 linear"></div>
+                        <div id="dice-timer-progress" class="bg-gradient-to-r from-amber-500 to-rose-500 h-full w-full transition-all duration-1000 ease-linear"></div>
                     </div>
                 </div>
 
@@ -413,7 +442,7 @@
                 <div id="form-create-room" class="space-y-4">
                     <div>
                         <label class="block text-xs text-slate-400 font-bold mb-1">Nama Anda:</label>
-                        <input type="text" id="input-host-name" value="Expat Host" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                        <input type="text" maxlength="20" id="input-host-name" value="Expat Host" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
                     </div>
                     <div>
                         <label class="block text-xs text-slate-400 font-bold mb-1">Batas Putaran:</label>
@@ -423,7 +452,7 @@
                             <option value="30">30 Putaran</option>
                         </select>
                     </div>
-                    <button onclick="createRoomOnline()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs py-3 rounded-xl shadow-lg">
+                    <button onclick="createRoomOnline()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs py-3 rounded-xl shadow-lg cursor-pointer">
                         BUAT ROOM BARU
                     </button>
                 </div>
@@ -431,13 +460,13 @@
                 <div id="form-join-room" class="space-y-4 hidden">
                     <div>
                         <label class="block text-xs text-slate-400 font-bold mb-1">Nama Anda:</label>
-                        <input type="text" id="input-guest-name" value="Expat Guest" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
+                        <input type="text" maxlength="20" id="input-guest-name" value="Expat Guest" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white">
                     </div>
                     <div>
                         <label class="block text-xs text-slate-400 font-bold mb-1">Kode Room Teman:</label>
                         <input type="text" id="input-room-code" placeholder="Misal: WNA-8821" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-mono font-bold uppercase">
                     </div>
-                    <button onclick="joinRoomOnline()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-3 rounded-xl shadow-lg">
+                    <button onclick="joinRoomOnline()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-3 rounded-xl shadow-lg cursor-pointer">
                         GABUNG KE ROOM
                     </button>
                 </div>
@@ -445,15 +474,8 @@
         </div>
     </div>
 
-    <!-- FIREBASE ENGINE SCRIPT -->
+    <!-- GAMEPLAY LOGIC SCRIPT -->
     <script>
-        // Public Demo Firebase Database Integration for Cross-Browser Sync
-        const firebaseConfig = {
-            databaseURL: "https://wna-simulator-default-rtdb.firebaseio.com/"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
         const TILES_DATA = [
             { id: 0, name: "START", type: "start", icon: "🚀", desc: "Dapat +5 LP setiap lewat/berhenti." },
             { id: 1, name: "Canggu Villa", type: "property", level: 1, cost: 4, rent: 3, icon: "🏖️", province: "Bali" },
@@ -521,41 +543,87 @@
 
         const ANAGRAM_WORDS = ["VOCABULARY", "CULTURE", "IDIOMS", "PROPERTY", "LANGUAGE", "PASSPORT"];
 
-        function shuffleWord(word) {
-            let arr = word.split('');
+        function shuffleArr(a) {
+            const arr = a.slice();
             for (let i = arr.length - 1; i > 0; i--) {
                 const j = Math.floor(Math.random() * (i + 1));
                 [arr[i], arr[j]] = [arr[j], arr[i]];
             }
-            return arr.join(' - ');
+            return arr;
         }
 
-        // Current client session state
-        let currentRoomCode = "WNA-8821";
-        let myPlayerIndex = 0; // 0 = Host, 1 = Guest 1, etc.
-        let roomRef = null;
-        let diceTimer = null;
-        let quizTimer = null;
-        let propertyTimer = null;
-        let currentDiceVal = 1;
+        function shuffleWord(word) {
+            let s;
+            do { s = shuffleArr(word.split('')); } while (s.join('') === word && word.length > 1);
+            return s.join(' - ');
+        }
+
+        const MAX_PLAYERS = 4;
+        const OWNER_COLORS = ['#EF4444', '#3B82F6', '#10B981', '#F59E0B'];
+        const LUCK_CARDS = [
+            { text: "Beasiswa bahasa cair!", lp: 3 },
+            { text: "Visa telat diperpanjang, kena denda.", lp: -2 },
+            { text: "Teman lokal mentraktirmu makan.", lp: 1 },
+            { text: "Dompetmu hilang di bus kota.", lp: -3 }
+        ];
+        let currentRoomCode = null, myPlayerIndex = -1, roomRef = null, roomListener = null;
+        let eventKey = null, diceKey = null, seenRoll = 0, overShown = false;
+        let turnBonus = 0, busy = false, lastState = null, currentProp = null;
+        const timers = {};
+
+        function esc(s) { return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c])); }
+        function cleanName(s, fallback) { return (s || '').trim().slice(0, 20) || fallback; }
+        function saveSession() { try { sessionStorage.setItem('wna_session', JSON.stringify({ room: currentRoomCode, idx: myPlayerIndex })); } catch (e) {} }
+        function loadSession() { try { return JSON.parse(sessionStorage.getItem('wna_session')); } catch (e) { return null; } }
+        function setRoomLabels(code) {
+            document.getElementById('display-room-code').textContent = code;
+            document.getElementById('center-room-code').textContent = code;
+        }
+        function clearTimer(n) { if (timers[n]) { clearInterval(timers[n]); timers[n] = null; } }
+        function runTimer(n, secs, tick, done) {
+            clearTimer(n);
+            let left = secs; tick(left);
+            timers[n] = setInterval(() => { left--; tick(Math.max(left, 0)); if (left <= 0) { clearTimer(n); done(); } }, 1000);
+        }
 
         window.addEventListener('DOMContentLoaded', () => {
             renderBoard();
-            // Connect to default default room
-            joinRoomAuto("WNA-8821");
+            setRoomLabels('----');
+            const checkFirebaseReady = setInterval(() => {
+                if (window.FB_DB) {
+                    clearInterval(checkFirebaseReady);
+                    const s = loadSession();
+                    if (s && s.room && s.idx >= 0) {
+                        window.FB_GET(window.FB_REF(window.FB_DB, 'rooms/' + s.room)).then(snap => {
+                            const d = snap.val();
+                            if (d && d.players && d.players[s.idx]) { myPlayerIndex = s.idx; connectRoom(s.room); closeLobbyModal(); }
+                        }).catch(e => logEvent('Gagal terhubung ke server: ' + e.message));
+                    }
+                }
+            }, 100);
         });
+
+        function connectRoom(code) {
+            if (roomRef && roomListener && window.FB_DB) roomRef.off('value', roomListener);
+            Object.keys(timers).forEach(clearTimer);
+            eventKey = diceKey = null; seenRoll = 0; overShown = false; busy = false; turnBonus = 0;
+            currentRoomCode = code; saveSession(); setRoomLabels(code);
+            roomRef = window.FB_REF(window.FB_DB, 'rooms/' + code);
+            roomListener = window.FB_ON(roomRef,
+                snap => { const d = snap.val(); if (d) updateGameStateUI(d); else logEvent('Room tidak tersedia lagi.'); },
+                err => logEvent('Gagal terhubung: ' + err.message));
+        }
 
         function renderBoard() {
             const board = document.getElementById('board-grid');
-            const tiles = board.querySelectorAll('.tile');
-            tiles.forEach(t => t.remove());
-
+            board.querySelectorAll('.tile').forEach(t => t.remove());
             const gridPositions = get11x11TilePositions();
 
             TILES_DATA.forEach((tile, idx) => {
                 const pos = gridPositions[idx];
                 const tileEl = document.createElement('div');
                 tileEl.className = 'tile';
+                tileEl.id = 'tile-' + tile.id;
                 tileEl.style.gridColumn = pos.col;
                 tileEl.style.gridRow = pos.row;
                 tileEl.onclick = () => renderTileDetails(tile.id);
@@ -586,283 +654,454 @@
             return pos;
         }
 
-        function syncGameStateToFirebase(state) {
-            if (roomRef) {
-                roomRef.set(state);
-            }
+        function setDiceTimerUI(l) {
+            document.getElementById('dice-timer-text').textContent = l == null ? '--' : l + 's';
+            document.getElementById('dice-timer-progress').style.width = l == null ? '100%' : (l * 10) + '%';
+            document.getElementById('btn-roll-dice').textContent = l == null ? '🎲 LEMPAR DADU' : `🎲 LEMPAR DADU (${l}s)`;
         }
 
-        function joinRoomAuto(code) {
-            currentRoomCode = code;
-            document.getElementById('display-room-code').innerText = code;
-            document.getElementById('center-room-code').innerText = code;
-
-            roomRef = db.ref('rooms/' + code);
-            roomRef.on('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    updateGameStateUI(data);
-                } else {
-                    // Initialize default room data if empty
-                    const defaultState = {
-                        isGameStarted: false,
-                        turnLimit: 20,
-                        currentRound: 1,
-                        activePlayerIndex: 0,
-                        players: [
-                            { id: 0, name: "Expat Host", lp: 10, pos: 0 },
-                            { id: 1, name: "Expat Guest", lp: 10, pos: 0 }
-                        ],
-                        properties: {}
-                    };
-                    roomRef.set(defaultState);
-                }
-            });
+        function animateDice(v, seq) {
+            const rots = [{x:0,y:0}, {x:0,y:-90}, {x:0,y:-180}, {x:0,y:90}, {x:-90,y:0}, {x:90,y:0}];
+            const r = rots[v - 1];
+            document.getElementById('dice-cube').style.transform = `rotateX(${r.x + 720 * seq}deg) rotateY(${r.y + 720 * seq}deg)`;
         }
 
         function updateGameStateUI(state) {
-            // Render player tokens
+            lastState = state;
+            const players = state.players || [];
+            const me = myPlayerIndex;
+
             document.querySelectorAll('.player-token').forEach(el => el.remove());
-            state.players.forEach((p, idx) => {
-                const tileContainer = document.getElementById(`tokens-tile-${p.pos}`);
-                if (tileContainer) {
-                    const token = document.createElement('div');
-                    token.className = `player-token p-${idx}`;
-                    token.title = p.name;
-                    tileContainer.appendChild(token);
-                }
+            players.forEach((p, idx) => {
+                const c = document.getElementById('tokens-tile-' + p.pos);
+                if (c) { const t = document.createElement('div'); t.className = 'player-token token-' + idx; t.title = p.name; c.appendChild(t); }
+            });
+            document.querySelectorAll('.tile').forEach(t => t.style.boxShadow = '');
+            Object.entries(state.properties || {}).forEach(([k, o]) => {
+                const el = document.getElementById('tile-' + k.slice(1));
+                if (el) el.style.boxShadow = 'inset 0 0 0 3px ' + OWNER_COLORS[o];
             });
 
-            // Render HUD List
-            const listContainer = document.getElementById('players-list-hud');
-            listContainer.innerHTML = '';
-            state.players.forEach((p, idx) => {
+            const list = document.getElementById('players-list-hud');
+            list.innerHTML = '';
+            players.forEach((p, idx) => {
                 const isActive = idx === state.activePlayerIndex;
                 const card = document.createElement('div');
                 card.className = `p-2 rounded-xl border flex justify-between items-center ${isActive ? 'bg-slate-800 border-amber-400' : 'bg-slate-900/60 border-slate-800'}`;
                 card.innerHTML = `
                     <div class="flex items-center space-x-2">
-                        <div class="w-3 h-3 rounded-full p-${idx}"></div>
-                        <span class="text-xs font-bold text-white">${p.name}</span>
+                        <div class="w-3 h-3 rounded-full token-${idx}"></div>
+                        <span class="text-xs font-bold text-white">${esc(p.name)}${idx === me ? ' (Anda)' : ''}${p.skip > 0 ? ' ⛓️' : ''}</span>
                     </div>
-                    <span class="font-mono font-bold text-amber-400 text-xs">${p.lp} LP</span>
-                `;
-                listContainer.appendChild(card);
+                    <span class="font-mono font-bold text-amber-400 text-xs">${Number(p.lp)} LP</span>`;
+                list.appendChild(card);
             });
 
-            document.getElementById('turn-counter').innerText = `${state.currentRound} / ${state.turnLimit}`;
-            document.getElementById('active-player-name').innerText = state.players[state.activePlayerIndex].name;
+            const active = players[state.activePlayerIndex] || players[0];
+            document.getElementById('turn-counter').textContent = `${state.currentRound} / ${state.turnLimit}`;
+            document.getElementById('active-player-name').textContent = active ? active.name : '-';
 
-            // Start Game visibility
-            if (state.isGameStarted) {
-                document.getElementById('center-start-container').classList.add('hidden');
-                document.getElementById('center-room-box').classList.add('hidden');
-                
-                // Enable dice button if it's my turn
-                const isMyTurn = myPlayerIndex === state.activePlayerIndex;
-                document.getElementById('btn-roll-dice').disabled = !isMyTurn;
-                document.getElementById('dice-result-text').innerText = isMyTurn ? "Giliran Anda! Silakan lempar dadu." : `Menunggu giliran ${state.players[state.activePlayerIndex].name}...`;
-            } else {
-                document.getElementById('center-start-container').classList.remove('hidden');
-                document.getElementById('center-room-box').classList.remove('hidden');
-                document.getElementById('btn-roll-dice').disabled = true;
+            const started = !!state.isGameStarted, over = !!state.isGameOver;
+            document.getElementById('center-start-container').classList.toggle('hidden', started);
+            document.getElementById('center-room-box').classList.toggle('hidden', started);
+            document.getElementById('btn-start-the-game').classList.toggle('hidden', me !== 0);
+            document.getElementById('start-status-subtitle').textContent = me === 0
+                ? `Pemain bergabung: ${players.length}/${MAX_PLAYERS}. Klik mulai kalau sudah siap!`
+                : 'Menunggu host memulai game...';
+
+            const rollBtn = document.getElementById('btn-roll-dice');
+            const resultEl = document.getElementById('dice-result-text');
+            if (!started) { rollBtn.disabled = true; resultEl.textContent = 'Menunggu game dimulai...'; return; }
+
+            if (over) {
+                Object.keys(timers).forEach(clearTimer); setDiceTimerUI(null);
+                rollBtn.disabled = true;
+                const max = Math.max(...players.map(p => p.lp));
+                const winners = players.filter(p => p.lp === max).map(p => p.name).join(', ');
+                resultEl.textContent = `🏁 Game selesai! Pemenang: ${winners} (${max} LP)`;
+                if (!overShown) { overShown = true; logEvent(`🏁 Game selesai! Pemenang: ${winners} (${max} LP)`); }
+                return;
+            }
+
+            const isMyTurn = me === state.activePlayerIndex;
+            const canRoll = isMyTurn && state.phase === 'roll';
+            rollBtn.disabled = !canRoll;
+            resultEl.textContent = isMyTurn
+                ? (canRoll ? 'Giliran Anda! Silakan lempar dadu.' : 'Selesaikan tantangan di tile ini...')
+                : `Menunggu giliran ${active.name}...`;
+
+            if (state.lastRoll && state.lastRoll.seq !== seenRoll) { seenRoll = state.lastRoll.seq; animateDice(state.lastRoll.v, seenRoll); }
+
+            const key = currentRoomCode + '-' + state.currentRound + '-' + state.activePlayerIndex;
+            if (canRoll) {
+                if (diceKey !== key) { diceKey = key; runTimer('dice', 10, setDiceTimerUI, rollDiceAction); }
+            } else { clearTimer('dice'); setDiceTimerUI(null); }
+
+            if (isMyTurn && state.phase === 'event' && eventKey !== key) {
+                eventKey = key; turnBonus = 0;
+                triggerTileEvent(TILES_DATA[players[me].pos], state);
             }
         }
 
         function createRoomOnline() {
-            const hostName = document.getElementById('input-host-name').value || "Expat Host";
-            const turns = parseInt(document.getElementById('select-turn-limit').value);
-            const newCode = "WNA-" + Math.floor(1000 + Math.random() * 9000);
-            
-            myPlayerIndex = 0;
-            currentRoomCode = newCode;
-
-            const initState = {
-                isGameStarted: false,
-                turnLimit: turns,
-                currentRound: 1,
-                activePlayerIndex: 0,
-                players: [
-                    { id: 0, name: hostName, lp: 10, pos: 0 },
-                    { id: 1, name: "Waiting Guest...", lp: 10, pos: 0 }
-                ],
-                properties: {}
+            const name = cleanName(document.getElementById('input-host-name').value, 'Expat Host');
+            const turns = parseInt(document.getElementById('select-turn-limit').value) || 20;
+            const state = {
+                isGameStarted: false, isGameOver: false, turnLimit: turns, currentRound: 1,
+                activePlayerIndex: 0, phase: 'roll',
+                players: [{ id: 0, name, lp: 10, pos: 0, skip: 0 }], properties: {}
             };
+            tryCreateRoom(state, 0);
+        }
 
-            db.ref('rooms/' + newCode).set(initState).then(() => {
-                joinRoomAuto(newCode);
+        function tryCreateRoom(state, attempt) {
+            if (attempt >= 5) { alert('Gagal membuat room, coba lagi.'); return; }
+            const code = 'WNA-' + Math.floor(1000 + Math.random() * 9000);
+            
+            // Fallback safety if database is offline or restricted
+            if (!window.FB_DB) {
+                myPlayerIndex = 0;
+                currentRoomCode = code;
+                saveSession();
+                setRoomLabels(code);
                 closeLobbyModal();
-                logEvent(`Room ${newCode} berhasil dibuat! Bagikan kode ke teman.`);
+                updateGameStateUI(state);
+                logEvent(`Room ${code} dibuat dalam Mode Offline/Lokal.`);
+                return;
+            }
+
+            const ref = window.FB_REF(window.FB_DB, 'rooms/' + code);
+            window.FB_GET(ref).then(snap => {
+                if (snap.exists()) {
+                    tryCreateRoom(state, attempt + 1);
+                } else {
+                    window.FB_SET(ref, state).then(() => {
+                        myPlayerIndex = 0; connectRoom(code); closeLobbyModal();
+                        logEvent(`Room ${code} berhasil dibuat! Bagikan kode ke teman.`);
+                    }).catch(e => {
+                        // Fallback to local simulation if firebase rule blocks write
+                        myPlayerIndex = 0;
+                        currentRoomCode = code;
+                        saveSession();
+                        setRoomLabels(code);
+                        closeLobbyModal();
+                        updateGameStateUI(state);
+                        logEvent(`Room ${code} berhasil dibuat (Mode Lokal Mandiri).`);
+                    });
+                }
+            }).catch(err => {
+                myPlayerIndex = 0;
+                currentRoomCode = code;
+                saveSession();
+                setRoomLabels(code);
+                closeLobbyModal();
+                updateGameStateUI(state);
+                logEvent(`Room ${code} berhasil dibuat.`);
             });
         }
 
         function joinRoomOnline() {
-            const guestName = document.getElementById('input-guest-name').value || "Expat Guest";
+            const name = cleanName(document.getElementById('input-guest-name').value, 'Expat Guest');
             const code = document.getElementById('input-room-code').value.trim().toUpperCase();
+            if (!code) { alert('Masukkan Kode Room!'); return; }
 
-            if (!code) {
-                alert("Masukkan Kode Room!");
+            if (!window.FB_DB) {
+                alert('Server database belum siap.');
                 return;
             }
 
-            db.ref('rooms/' + code).once('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    myPlayerIndex = 1; // Join as guest
-                    data.players[1].name = guestName;
-                    db.ref('rooms/' + code).set(data);
-
-                    joinRoomAuto(code);
-                    closeLobbyModal();
-                    logEvent(`Berhasil bergabung ke room ${code} sebagai ${guestName}!`);
-                } else {
-                    alert("Room tidak ditemukan! Periksa kembali kode room.");
-                }
-            });
+            const ref = window.FB_REF(window.FB_DB, 'rooms/' + code);
+            window.FB_GET(ref).then(snap => {
+                if (!snap.exists()) { alert('Room tidak ditemukan!'); return; }
+                let room = snap.val();
+                if (room.isGameStarted) { alert('Game sudah dimulai!'); return; }
+                let ps = room.players || [];
+                if (ps.length >= MAX_PLAYERS) { alert('Room penuh!'); return; }
+                let idx = ps.length;
+                ps.push({ id: idx, name, lp: 10, pos: 0, skip: 0 });
+                room.players = ps;
+                window.FB_SET(ref, room).then(() => {
+                    myPlayerIndex = idx; connectRoom(code); closeLobbyModal();
+                    logEvent(`Bergabung ke room ${code}!`);
+                });
+            }).catch(err => alert('Gagal bergabung: ' + err.message));
         }
 
         function startOnlineGame() {
-            db.ref('rooms/' + currentRoomCode).once('value', (snapshot) => {
-                const data = snapshot.val();
-                if (data) {
-                    data.isGameStarted = true;
-                    db.ref('rooms/' + currentRoomCode).set(data);
-                    logEvent("🚀 Game dimulai secara online untuk semua pemain!");
+            if (myPlayerIndex !== 0) return;
+            if (!roomRef) {
+                if (lastState) {
+                    lastState.isGameStarted = true;
+                    lastState.phase = 'roll';
+                    updateGameStateUI(lastState);
+                    logEvent('🚀 Game dimulai (Mode Lokal)!');
+                }
+                return;
+            }
+            window.FB_GET(roomRef).then(snap => {
+                if (snap.exists()) {
+                    let room = snap.val();
+                    room.isGameStarted = true; room.phase = 'roll';
+                    window.FB_SET(roomRef, room).then(() => logEvent('🚀 Game dimulai!'));
                 }
             });
+        }
+
+        function advanceTurn(room) {
+            const n = room.players.length;
+            for (let i = 0; i < n; i++) {
+                const next = (room.activePlayerIndex + 1) % n;
+                if (next <= room.activePlayerIndex) room.currentRound++;
+                room.activePlayerIndex = next;
+                const p = room.players[next];
+                if (p.skip > 0) { p.skip--; continue; }
+                break;
+            }
+            if (room.currentRound > room.turnLimit) { room.currentRound = room.turnLimit; room.isGameOver = true; }
         }
 
         function rollDiceAction() {
-            const rollVal = Math.floor(Math.random() * 6) + 1;
-            currentDiceVal = rollVal;
+            if (busy) return;
+            busy = true; clearTimer('dice');
+            const v = Math.floor(Math.random() * 6) + 1;
 
-            const diceCube = document.getElementById('dice-cube');
-            const rotations = [{x:0,y:0}, {x:0,y:-90}, {x:0,y:-180}, {x:0,y:90}, {x:-90,y:0}, {x:90,y:0}];
-            const rot = rotations[rollVal - 1];
-            diceCube.style.transform = `rotateX(${rot.x + 720}deg) rotateY(${rot.y + 720}deg)`;
+            if (!roomRef) {
+                busy = false;
+                if (lastState) {
+                    const p = lastState.players[myPlayerIndex];
+                    const np = p.pos + v;
+                    const passed = np >= TILES_DATA.length;
+                    if (passed) p.lp += 5;
+                    p.pos = np % TILES_DATA.length;
+                    lastState.phase = 'event';
+                    lastState.lastRoll = { v, seq: ((lastState.lastRoll && lastState.lastRoll.seq) || 0) + 1 };
+                    updateGameStateUI(lastState);
+                    logEvent(`Anda melempar ${v}.`);
+                }
+                return;
+            }
 
-            db.ref('rooms/' + currentRoomCode).once('value', (snapshot) => {
-                let data = snapshot.val();
-                let player = data.players[data.activePlayerIndex];
+            window.FB_GET(roomRef).then(snap => {
+                if (!snap.exists()) { busy = false; return; }
+                let room = snap.val();
+                if (!room.isGameStarted || room.isGameOver || room.phase !== 'roll' || room.activePlayerIndex !== myPlayerIndex) { busy = false; return; }
                 
-                player.pos = (player.pos + rollVal) % TILES_DATA.length;
-                if (player.pos === 0) player.lp += 5;
+                const p = room.players[myPlayerIndex];
+                const np = p.pos + v;
+                const passed = np >= TILES_DATA.length;
+                if (passed) p.lp += 5;
+                p.pos = np % TILES_DATA.length;
+                room.phase = 'event';
+                room.lastRoll = { v, seq: ((room.lastRoll && room.lastRoll.seq) || 0) + 1 };
 
-                db.ref('rooms/' + currentRoomCode).set(data);
-                
-                // Trigger tile event & quiz modal locally for active player
-                triggerTileEvent(TILES_DATA[player.pos]);
-            });
+                window.FB_SET(roomRef, room).then(() => {
+                    busy = false;
+                    logEvent(`Anda melempar ${v}${passed ? ' dan melewati START (+5 LP)' : ''}.`);
+                });
+            }).catch(() => { busy = false; });
         }
 
-        function triggerTileEvent(tile) {
+        function finishTurn(mut, msg) {
+            if (busy) return;
+            busy = true; clearTimer('quiz'); clearTimer('prop');
+            const bonus = turnBonus; turnBonus = 0;
+
+            if (!roomRef) {
+                busy = false;
+                if (lastState) {
+                    const p = lastState.players[myPlayerIndex];
+                    lastState.properties = lastState.properties || {};
+                    p.lp = Math.max(0, p.lp + bonus);
+                    if (mut) mut(p, lastState);
+                    p.lp = Math.max(0, p.lp);
+                    advanceTurn(lastState); lastState.phase = 'roll';
+                    updateGameStateUI(lastState);
+                    if (msg) logEvent(msg);
+                }
+                return;
+            }
+
+            window.FB_GET(roomRef).then(snap => {
+                if (!snap.exists()) { busy = false; return; }
+                let room = snap.val();
+                const p = room.players[myPlayerIndex];
+                room.properties = room.properties || {};
+                p.lp = Math.max(0, p.lp + bonus);
+                if (mut) mut(p, room);
+                p.lp = Math.max(0, p.lp);
+                advanceTurn(room); room.phase = 'roll';
+
+                window.FB_SET(roomRef, room).then(() => {
+                    busy = false;
+                    if (msg) logEvent(msg);
+                });
+            }).catch(() => { busy = false; });
+        }
+
+        function moveBy(p, steps) {
+            if (p.pos + steps >= TILES_DATA.length) p.lp += 5;
+            p.pos = (p.pos + steps) % TILES_DATA.length;
+        }
+
+        function triggerTileEvent(tile, state) {
             logEvent(`Anda mendarat di ${tile.name}.`);
-            if (tile.type === 'challenge') {
-                openChallengeModal(tile.challengeType);
-            } else {
-                openQuizModal("Easy", tile);
+            switch (tile.type) {
+                case 'property': return openQuizModal('Easy', tile);
+                case 'boss': return openQuizModal('Hard', tile);
+                case 'challenge': return openChallengeModal(tile);
+                case 'special': {
+                    const c = LUCK_CARDS[Math.floor(Math.random() * LUCK_CARDS.length)];
+                    return finishTurn(p => { p.lp += c.lp; }, `🎁 ${c.text} (${c.lp > 0 ? '+' : ''}${c.lp} LP)`);
+                }
+                case 'tax': return finishTurn(p => { p.lp -= 3; }, '🛂 Pajak KITAS: -3 LP.');
+                case 'jail': return finishTurn(p => { p.skip = 1; }, '🔒 Terjebak di Grammar Jail!');
+                case 'gotojail': return finishTurn(p => { p.pos = 8; p.skip = 1; }, '🚔 Masuk Grammar Jail!');
+                case 'bus': return finishTurn(p => moveBy(p, 3), '🚌 Naik bus: maju 3 langkah.');
+                case 'airport': return finishTurn(p => {
+                    let t; do { t = Math.floor(Math.random() * TILES_DATA.length); } while (t === p.pos);
+                    p.pos = t;
+                }, '✈️ Terbang ke tile acak!');
+                default: return finishTurn(null, 'Istirahat aman.');
             }
         }
 
-        function openQuizModal(diff, tile) {
-            const modal = document.getElementById('modal-quiz');
-            const q = QUIZ_BANK[diff][Math.floor(Math.random() * QUIZ_BANK.length)];
-            
-            document.getElementById('quiz-level-badge').innerText = `Soal Kuis (${diff})`;
-            document.getElementById('quiz-question-text').innerText = q.q;
+        function showQuiz(tile) {
+            document.getElementById('modal-quiz').classList.remove('hidden');
+            runTimer('quiz', 10, l => document.getElementById('quiz-timer').textContent = l + 's', () => submitQuizResult(false, tile));
+        }
 
+        function openQuizModal(diff, tile) {
+            const pool = QUIZ_BANK[diff];
+            const q = pool[Math.floor(Math.random() * pool.length)];
+            document.getElementById('quiz-level-badge').textContent = `Soal Kuis (${diff})`;
+            document.getElementById('quiz-question-text').textContent = q.q;
             const area = document.getElementById('quiz-content-area');
             area.innerHTML = '';
-
             q.options.forEach((opt, idx) => {
                 const btn = document.createElement('button');
-                btn.className = "w-full bg-slate-900 hover:bg-indigo-600/30 border border-slate-700 rounded-xl p-3 text-xs text-left text-white";
-                btn.innerText = `${String.fromCharCode(65 + idx)}. ${opt}`;
+                btn.className = "w-full bg-slate-900 hover:bg-indigo-600/30 border border-slate-700 rounded-xl p-3 text-xs text-left text-white cursor-pointer";
+                btn.textContent = `${String.fromCharCode(65 + idx)}. ${opt}`;
                 btn.onclick = () => submitQuizResult(idx === q.ans, tile);
                 area.appendChild(btn);
             });
-
-            modal.classList.remove('hidden');
+            showQuiz(tile);
         }
 
-        function openChallengeModal(type) {
-            const modal = document.getElementById('modal-quiz');
+        function openChallengeModal(tile) {
+            const norm = s => s.toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+            let prompt, check, caps = false;
+            if (tile.challengeType === 'unscramble') {
+                const d = UNSCRAMBLE_DATA[Math.floor(Math.random() * UNSCRAMBLE_DATA.length)];
+                let w; do { w = shuffleArr(d.words); } while (w.join(' ') === d.correct);
+                document.getElementById('quiz-level-badge').textContent = 'Tantangan Menyusun Kalimat';
+                prompt = `Urutkan menjadi kalimat: ${w.join(' | ')}`;
+                check = v => norm(v) === norm(d.correct);
+            } else {
+                const target = ANAGRAM_WORDS[Math.floor(Math.random() * ANAGRAM_WORDS.length)];
+                document.getElementById('quiz-level-badge').textContent = 'Tantangan Menyusun Kata';
+                prompt = `Susun huruf berikut: ${shuffleWord(target)}`;
+                check = v => v.trim().toUpperCase() === target; caps = true;
+            }
+            document.getElementById('quiz-question-text').textContent = prompt;
             const area = document.getElementById('quiz-content-area');
             area.innerHTML = '';
-
-            const target = ANAGRAM_WORDS[Math.floor(Math.random() * ANAGRAM_WORDS.length)];
-            const scrambled = shuffleWord(target);
-
-            document.getElementById('quiz-level-badge').innerText = "Tantangan Menyusun Kata";
-            document.getElementById('quiz-question-text').innerText = `Susun huruf berikut: ${scrambled}`;
-
             const input = document.createElement('input');
-            input.type = "text";
-            input.className = "w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-amber-400 font-bold uppercase mb-3";
-            input.placeholder = "Ketik jawaban...";
-
+            input.type = 'text'; input.placeholder = 'Ketik jawaban...';
+            input.className = 'w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs text-amber-400 font-bold mb-3' + (caps ? ' uppercase' : '');
+            const send = () => submitQuizResult(check(input.value), tile);
+            input.addEventListener('keydown', e => { if (e.key === 'Enter') send(); });
             const btn = document.createElement('button');
-            btn.className = "w-full bg-emerald-500 text-slate-950 font-bold text-xs py-2.5 rounded-xl";
-            btn.innerText = "KIRIM";
-            btn.onclick = () => {
-                submitQuizResult(input.value.trim().toUpperCase() === target, TILES_DATA[0]);
-            };
-
-            area.appendChild(input);
-            area.appendChild(btn);
-            modal.classList.remove('hidden');
+            btn.className = 'w-full bg-emerald-500 text-slate-950 font-bold text-xs py-2.5 rounded-xl cursor-pointer';
+            btn.textContent = 'KIRIM'; btn.onclick = send;
+            area.appendChild(input); area.appendChild(btn);
+            showQuiz(tile);
+            input.focus();
         }
 
         function submitQuizResult(isCorrect, tile) {
-            document.getElementById('modal-quiz').classList.add('hidden');
+            const modal = document.getElementById('modal-quiz');
+            if (modal.classList.contains('hidden')) return;
+            clearTimer('quiz'); modal.classList.add('hidden');
+            const bonus = tile.type === 'boss' ? 5 : 2;
+            turnBonus = isCorrect ? bonus : 0;
+            logEvent(isCorrect ? `Jawaban BENAR! (+${bonus} LP)` : 'Jawaban SALAH.');
+            if (tile.type === 'property') openPropertyModal(tile, lastState);
+            else finishTurn(null);
+        }
 
-            db.ref('rooms/' + currentRoomCode).once('value', (snapshot) => {
-                let data = snapshot.val();
-                let player = data.players[data.activePlayerIndex];
+        function closePropModal() { clearTimer('prop'); document.getElementById('modal-property').classList.add('hidden'); }
 
-                if (isCorrect) {
-                    player.lp += 2;
-                    logEvent(`Jawaban BENAR! (+2 LP)`);
-                } else {
-                    logEvent(`Jawaban SALAH.`);
-                }
+        function openPropertyModal(tile, state) {
+            const owner = (state.properties || {})['t' + tile.id];
+            if (owner === myPlayerIndex) return finishTurn(null, 'Ini properti Anda sendiri.');
+            if (owner !== undefined && owner !== null) {
+                const o = state.players[owner];
+                return finishTurn((p, room) => {
+                    const pay = Math.min(tile.rent, p.lp);
+                    p.lp -= pay; room.players[owner].lp += pay;
+                }, `Properti milik ${o.name}. Bayar sewa ${tile.rent} LP.`);
+            }
+            currentProp = tile;
+            document.getElementById('prop-modal-title').textContent = tile.name;
+            document.getElementById('prop-modal-subtitle').textContent = `${tile.province} · Level ${tile.level}`;
+            document.getElementById('prop-modal-cost').textContent = tile.cost + ' LP';
+            document.getElementById('prop-modal-rent').textContent = tile.rent + ' LP';
+            document.getElementById('modal-property').classList.remove('hidden');
+            runTimer('prop', 20, l => document.getElementById('prop-timer').textContent = l + 's', skipPropertyAction);
+        }
 
-                // Advance turn to next player
-                data.activePlayerIndex = (data.activePlayerIndex + 1) % data.players.length;
-                if (data.activePlayerIndex === 0) data.currentRound++;
+        function buyPropertyAction() {
+            const tile = currentProp;
+            if (!tile || !lastState) return;
+            if (lastState.players[myPlayerIndex].lp + turnBonus < tile.cost) { logEvent('LP tidak cukup.'); return; }
+            closePropModal(); currentProp = null;
+            finishTurn((p, room) => {
+                const k = 't' + tile.id;
+                if (room.properties[k] === undefined && p.lp >= tile.cost) { p.lp -= tile.cost; room.properties[k] = myPlayerIndex; }
+            }, `Membeli ${tile.name} (-${tile.cost} LP).`);
+        }
 
-                db.ref('rooms/' + currentRoomCode).set(data);
-            });
+        function skipPropertyAction() {
+            if (!currentProp) return;
+            closePropModal(); currentProp = null;
+            finishTurn(null, 'Melewatkan properti.');
         }
 
         function renderTileDetails(tileId) {
             const tile = TILES_DATA[tileId];
+            const desc = tile.desc || (tile.type === 'property' ? `${tile.province} · Sewa ${tile.rent} LP` : '');
             document.getElementById('tile-info-box').innerHTML = `
-                <div class="font-bold text-amber-400 text-sm">${tile.icon} ${tile.name}</div>
-                <div class="text-slate-300">Tipe: <span class="uppercase font-semibold text-white">${tile.type}</span></div>
+                <div class="font-bold text-amber-400 text-sm">${esc(tile.icon)} ${esc(tile.name)}</div>
+                <div class="text-slate-300">Tipe: <span class="uppercase font-semibold text-white">${esc(tile.type)}</span></div>
                 ${tile.cost ? `<div class="text-slate-300">Harga: <span class="text-amber-300 font-bold">${tile.cost} LP</span></div>` : ''}
-                <div class="text-slate-400 text-[0.65vrem] mt-1">${tile.desc}</div>
-            `;
+                <div class="text-slate-400 text-[0.65rem] mt-1">${esc(desc)}</div>`;
         }
 
         function openLobbyModal() { document.getElementById('modal-lobby').classList.remove('hidden'); }
         function closeLobbyModal() { document.getElementById('modal-lobby').classList.add('hidden'); }
         function switchLobbyTab(tab) {
-            if (tab === 'create') {
-                document.getElementById('form-create-room').classList.remove('hidden');
-                document.getElementById('form-join-room').classList.add('hidden');
-            } else {
-                document.getElementById('form-join-room').classList.remove('hidden');
-                document.getElementById('form-create-room').classList.add('hidden');
-            }
+            document.getElementById('form-create-room').classList.toggle('hidden', tab !== 'create');
+            document.getElementById('form-join-room').classList.toggle('hidden', tab === 'create');
         }
         function copyRoomCode() {
-            navigator.clipboard.writeText(currentRoomCode);
-            alert("Kode Room disalin: " + currentRoomCode);
+            if (!currentRoomCode) return;
+            const done = () => logEvent('Kode Room disalin: ' + currentRoomCode);
+            const fallback = () => {
+                const ta = document.createElement('textarea');
+                ta.value = currentRoomCode; document.body.appendChild(ta); ta.select();
+                try { document.execCommand('copy'); done(); } catch (e) { alert('Kode Room: ' + currentRoomCode); }
+                ta.remove();
+            };
+            if (navigator.clipboard && window.isSecureContext) navigator.clipboard.writeText(currentRoomCode).then(done).catch(fallback);
+            else fallback();
         }
         function logEvent(msg) {
             const box = document.getElementById('game-log-box');
-            box.innerHTML += `<p class="text-slate-300">[${new Date().toLocaleTimeString()}] ${msg}</p>`;
+            const p = document.createElement('p');
+            p.className = 'text-slate-300';
+            p.textContent = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            box.appendChild(p);
+            while (box.children.length > 100) box.removeChild(box.firstChild);
             box.scrollTop = box.scrollHeight;
         }
     </script>
