@@ -1,0 +1,1112 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WNA Simulator: Expat Odyssey Online</title>
+    <!-- Inline SVG Favicon to eliminate 404 error -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎲</text></svg>">
+    <!-- Meta policy directive to clear unrecognized feature header warnings -->
+    <meta http-equiv="Permissions-Policy" content="interest-cohort=(), attribution-reporting=(), private-aggregation=(), join-ad-interest-group=(), run-ad-auction=(), browsing-topics=()">
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Plus Jakarta Sans', 'sans-serif'],
+                        display: ['Fredoka', 'cursive'],
+                    },
+                    colors: {
+                        wna: {
+                            navy: '#0F172A',
+                            card: '#1E293B',
+                            gold: '#F59E0B',
+                            emerald: '#10B981',
+                            rose: '#F43F5E',
+                            cyan: '#06B6D4',
+                            purple: '#8B5CF6'
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            background-color: #090D16;
+            color: #F8FAFC;
+            user-select: none;
+        }
+
+        .monopoly-board {
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            grid-template-rows: repeat(11, 1fr);
+            aspect-ratio: 1 / 1;
+            width: 100%;
+            max-width: 920px;
+            margin: 0 auto;
+            gap: 3px;
+            background-color: #1E293B;
+            border: 4px solid #334155;
+            border-radius: 1rem;
+            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.5), 0 8px 10px -6px rgba(0, 0, 0, 0.5);
+            position: relative;
+            padding: 6px;
+        }
+
+        .tile {
+            background-color: #0F172A;
+            border: 1px solid #334155;
+            border-radius: 0.5rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            overflow: hidden;
+            transition: all 0.2s ease;
+            cursor: pointer;
+            padding-bottom: 4px;
+        }
+
+        .tile:hover {
+            filter: brightness(1.25);
+            z-index: 10;
+        }
+
+        .tile-header {
+            width: 100%;
+            padding: 2px 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            color: #fff;
+            text-transform: uppercase;
+            font-size: 0.6rem;
+            letter-spacing: 0.02em;
+        }
+
+        .tile-title {
+            font-size: clamp(0.55rem, 0.8vw, 0.72rem);
+            font-weight: 700;
+            line-height: 1.1;
+            text-align: center;
+            color: #F1F5F9;
+            padding: 0 2px;
+            word-wrap: break-word;
+            hyphens: auto;
+            display: -webkit-box;
+            -webkit-line-clamp: 2;
+            -webkit-box-orient: vertical;
+            overflow: hidden;
+        }
+
+        .center-area {
+            grid-column: 2 / 11;
+            grid-row: 2 / 11;
+            background: radial-gradient(circle at center, #1E293B 0%, #0F172A 100%);
+            border-radius: 0.75rem;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+            border: 2px stroke #334155;
+            padding: 1.5rem;
+        }
+
+        .player-token {
+            width: 14px;
+            height: 14px;
+            border-radius: 50%;
+            border: 2px solid white;
+            box-shadow: 0 0 6px rgba(0,0,0,0.8);
+            position: absolute;
+            transition: all 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+            z-index: 20;
+        }
+
+        .p-0 { background-color: #EF4444; }
+        .p-1 { background-color: #3B82F6; }
+        .p-2 { background-color: #10B981; }
+        .p-3 { background-color: #F59E0B; }
+
+        .dice-container {
+            perspective: 1000px;
+            width: 60px;
+            height: 60px;
+        }
+
+        .dice-cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1s ease-out;
+        }
+
+        .dice-face {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: #F8FAFC;
+            border: 2px solid #CBD5E1;
+            border-radius: 12px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.5rem;
+            font-weight: bold;
+            color: #0F172A;
+            box-shadow: inset 0 0 8px rgba(0,0,0,0.1);
+        }
+
+        .face-1 { transform: rotateY(0deg) translateZ(30px); }
+        .face-2 { transform: rotateY(90deg) translateZ(30px); }
+        .face-3 { transform: rotateY(180deg) translateZ(30px); }
+        .face-4 { transform: rotateY(-90deg) translateZ(30px); }
+        .face-5 { transform: rotateX(90deg) translateZ(30px); }
+        .face-6 { transform: rotateX(-90deg) translateZ(30px); }
+
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-track { background: #0F172A; }
+        ::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    </style>
+</head>
+<body class="min-h-screen font-sans flex flex-col">
+
+    <!-- TOP HEADER NAVBAR -->
+    <header class="bg-wna-navy border-b border-slate-800 px-6 py-3 flex justify-between items-center sticky top-0 z-50">
+        <div class="flex items-center space-x-3">
+            <div class="bg-gradient-to-tr from-amber-500 to-rose-500 w-10 h-10 rounded-xl flex items-center justify-center font-display font-bold text-xl text-white shadow-lg">
+                🌴
+            </div>
+            <div>
+                <h1 class="font-display font-bold text-xl tracking-wide bg-gradient-to-r from-amber-400 to-rose-400 bg-clip-text text-transparent">
+                    WNA SIMULATOR
+                </h1>
+                <p class="text-xs text-slate-400 font-medium">Expat Odyssey Online Edition</p>
+            </div>
+        </div>
+
+        <div class="flex items-center space-x-4">
+            <div id="room-code-badge" class="hidden bg-slate-800 border border-slate-700 px-3 py-1.5 rounded-lg flex items-center space-x-2">
+                <span class="text-xs text-slate-400">ROOM:</span>
+                <span id="display-room-code" class="font-mono font-bold text-amber-400">---</span>
+                <button onclick="copyRoomCode()" class="text-slate-400 hover:text-white text-xs ml-1" title="Salin Kode">
+                    <i class="fa-regular fa-copy"></i>
+                </button>
+            </div>
+            
+            <button id="btn-open-lobby" onclick="openLobbyModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs px-4 py-2 rounded-lg transition-all shadow-md flex items-center space-x-2">
+                <i class="fa-solid fa-users"></i>
+                <span>ROOM MULTIPLAYER</span>
+            </button>
+        </div>
+    </header>
+
+    <!-- MAIN GAMEPLAY AREA -->
+    <main class="flex-1 max-w-7xl w-full mx-auto p-4 grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        
+        <!-- BOARD SECTION -->
+        <section class="lg:col-span-8 flex flex-col items-center justify-center">
+            <div class="monopoly-board" id="board-grid">
+                
+                <div class="center-area text-center shadow-inner">
+                    <div class="mb-2">
+                        <span class="text-3xl">🇮🇩</span>
+                    </div>
+                    <h2 class="font-display font-bold text-2xl md:text-3xl text-amber-400 tracking-wider">WNA SIMULATOR</h2>
+                    <p class="text-xs md:text-sm text-slate-300 font-medium max-w-md mt-1">
+                        Jelajahi destinasi impian expat di Indonesia, kuasai Bahasa & Budaya, kumpulkan Poin Energi Bahasa (LP)!
+                    </p>
+
+                    <div id="center-start-container" class="mt-5 flex flex-col items-center">
+                        <button id="btn-start-the-game" onclick="startGameMaster()" class="bg-gradient-to-r from-emerald-500 to-teal-400 hover:from-emerald-400 hover:to-teal-300 text-slate-950 font-display font-black text-lg md:text-xl px-10 py-4 rounded-2xl shadow-2xl shadow-emerald-500/40 border-2 border-emerald-300 transform hover:scale-110 active:scale-95 transition-all duration-300 animate-bounce flex items-center space-x-3">
+                            <span>🚀 START THE GAME</span>
+                        </button>
+                        <p class="text-xs text-slate-400 mt-2 font-semibold">Klik tombol di atas untuk memulai permainan!</p>
+                    </div>
+
+                    <div id="center-room-box" class="mt-4 bg-slate-900/90 border border-amber-500/40 px-6 py-3 rounded-xl shadow-xl backdrop-blur-sm flex flex-col items-center">
+                        <span class="text-xs text-slate-400 uppercase tracking-widest font-bold mb-1">Kode Room Anda:</span>
+                        <div class="flex items-center space-x-3">
+                            <span id="center-room-code" class="font-mono font-black text-2xl text-amber-400 tracking-widest">OFFLINE</span>
+                            <button onclick="copyRoomCode()" class="bg-amber-500/20 hover:bg-amber-500/30 text-amber-300 px-3 py-1 rounded-lg text-xs font-bold transition-all border border-amber-500/30">
+                                <i class="fa-regular fa-copy mr-1"></i> SALIN KODE
+                            </button>
+                        </div>
+                    </div>
+
+                    <div id="turn-status-bar" class="mt-4 flex items-center space-x-4 text-xs font-bold text-slate-300 bg-slate-800/80 px-4 py-2 rounded-full border border-slate-700">
+                        <div class="flex items-center space-x-1">
+                            <span class="text-slate-400">Putaran:</span>
+                            <span id="turn-counter" class="text-amber-400 font-mono">1 / 20</span>
+                        </div>
+                        <div class="w-px h-3 bg-slate-700"></div>
+                        <div class="flex items-center space-x-1">
+                            <span class="text-slate-400">Giliran:</span>
+                            <span id="active-player-name" class="text-emerald-400 font-semibold">Expat 1</span>
+                        </div>
+                    </div>
+
+                </div>
+
+            </div>
+        </section>
+
+        <!-- RIGHT SIDEBAR -->
+        <section class="lg:col-span-4 w-full flex flex-col space-y-4">
+            
+            <div class="bg-wna-card border border-slate-700 rounded-2xl p-5 shadow-xl flex flex-col items-center text-center">
+                <h3 class="font-display text-xs font-bold text-slate-300 uppercase tracking-wider mb-3">Kocok Dadu Permainan</h3>
+                
+                <div class="w-full mb-3">
+                    <div class="flex justify-between items-center text-[0.7rem] font-bold text-amber-400 mb-1">
+                        <span><i class="fa-regular fa-clock mr-1"></i> SISA WAKTU LEMPAR:</span>
+                        <span id="dice-timer-text" class="font-mono">10s</span>
+                    </div>
+                    <div class="w-full bg-slate-800 h-2.5 rounded-full overflow-hidden border border-slate-700">
+                        <div id="dice-timer-progress" class="bg-gradient-to-r from-amber-500 to-rose-500 h-full w-full transition-all duration-1000 linear"></div>
+                    </div>
+                </div>
+
+                <div class="dice-container my-2">
+                    <div id="dice-cube" class="dice-cube">
+                        <div class="dice-face face-1">1</div>
+                        <div class="dice-face face-2">2</div>
+                        <div class="dice-face face-3">3</div>
+                        <div class="dice-face face-4">4</div>
+                        <div class="dice-face face-5">5</div>
+                        <div class="dice-face face-6">6</div>
+                    </div>
+                </div>
+
+                <div class="text-xs text-slate-400 my-2">
+                    <span id="dice-result-text" class="font-bold text-amber-400">Klik "START THE GAME" untuk mulai!</span>
+                </div>
+
+                <button id="btn-roll-dice" disabled onclick="rollDiceAction()" class="w-full bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-slate-950 font-display font-bold text-base py-3 px-6 rounded-xl shadow-lg shadow-amber-500/20 transition-all transform active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed">
+                    🎲 LEMPAR DADU (10s)
+                </button>
+            </div>
+
+            <div class="bg-wna-card border border-slate-700 rounded-2xl p-4 shadow-xl">
+                <h3 class="font-display text-xs font-bold text-slate-300 uppercase tracking-wider mb-3 flex justify-between items-center">
+                    <span>Status Pemain</span>
+                    <span class="text-amber-400 font-mono text-xs">Poin Energi (LP)</span>
+                </h3>
+                <div id="players-list-hud" class="space-y-2"></div>
+            </div>
+
+            <div class="bg-wna-card border border-slate-700 rounded-2xl p-4 shadow-xl">
+                <h3 class="font-display text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center space-x-2">
+                    <i class="fa-solid fa-circle-info text-amber-400"></i>
+                    <span>Informasi Tile</span>
+                </h3>
+                <div id="tile-info-box" class="bg-slate-900/60 rounded-xl p-3 border border-slate-800 text-xs space-y-1">
+                    <p class="text-slate-400">Klik tile mana saja di papan untuk melihat harga, denda, dan pemilik properti.</p>
+                </div>
+            </div>
+
+            <div class="bg-wna-card border border-slate-700 rounded-2xl p-4 shadow-xl flex-1 flex flex-col">
+                <h3 class="font-display text-xs font-bold text-slate-300 uppercase tracking-wider mb-2 flex items-center space-x-2">
+                    <i class="fa-solid fa-scroll text-indigo-400"></i>
+                    <span>Log Informasi Sistem</span>
+                </h3>
+                <div id="game-log-box" class="bg-slate-900/80 rounded-xl p-3 border border-slate-800 text-xs font-mono text-slate-300 h-32 overflow-y-auto space-y-1">
+                    <p class="text-emerald-400">[Sistem]: Selamat datang di WNA Simulator Online!</p>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- QUIZ CHALLENGE MODAL -->
+    <div id="modal-quiz" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wna-card border border-slate-700 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative">
+            <div class="absolute top-4 right-4 bg-slate-900 border border-slate-700 px-3 py-1 rounded-full text-xs font-bold text-amber-400 flex items-center space-x-1">
+                <i class="fa-regular fa-clock"></i>
+                <span id="quiz-timer">10s</span>
+            </div>
+
+            <div class="mb-4">
+                <span id="quiz-level-badge" class="bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 text-xs font-bold px-3 py-1 rounded-full uppercase">
+                    Soal Easy
+                </span>
+            </div>
+
+            <h3 id="quiz-question-text" class="font-display text-base md:text-lg text-white font-bold mb-4 leading-relaxed">
+                Pertanyaan akan dimuat di sini...
+            </h3>
+
+            <div id="quiz-content-area" class="space-y-2 mb-6"></div>
+            <p class="text-xs text-slate-400 text-center">Jawab dengan benar untuk mendapatkan hak transaksi & bonus poin LP!</p>
+        </div>
+    </div>
+
+    <!-- PROPERTY PURCHASE / UPGRADE DECISION MODAL -->
+    <div id="modal-property" class="fixed inset-0 bg-slate-950/80 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wna-card border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl text-center relative">
+            <div class="absolute top-4 right-4 bg-slate-900 border border-slate-700 px-3 py-1 rounded-full text-xs font-bold text-amber-400 flex items-center space-x-1">
+                <i class="fa-regular fa-clock"></i>
+                <span id="prop-timer">20s</span>
+            </div>
+
+            <div class="w-16 h-16 bg-amber-500/10 rounded-2xl border border-amber-500/30 flex items-center justify-center text-3xl mx-auto mb-3">
+                🏛️
+            </div>
+
+            <h3 id="prop-modal-title" class="font-display text-xl font-bold text-amber-400 mb-1">Canggu Villa</h3>
+            <p id="prop-modal-subtitle" class="text-xs text-slate-300 mb-4">Properti Level 1 (House)</p>
+
+            <div class="bg-slate-900/80 rounded-2xl p-4 border border-slate-800 text-xs space-y-2 mb-6 text-left">
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Harga Investasi:</span>
+                    <span id="prop-modal-cost" class="font-mono font-bold text-amber-400">4 LP</span>
+                </div>
+                <div class="flex justify-between">
+                    <span class="text-slate-400">Denda Sewa Lawan:</span>
+                    <span id="prop-modal-rent" class="font-mono font-bold text-emerald-400">3 LP</span>
+                </div>
+            </div>
+
+            <div class="flex space-x-3">
+                <button onclick="skipPropertyAction()" class="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold text-xs py-3 rounded-xl transition-all border border-slate-700">
+                    LEWATKAN
+                </button>
+                <button id="btn-buy-prop" onclick="buyPropertyAction()" class="flex-1 bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20">
+                    BELI / UPGRADE
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ROOM MULTIPLAYER LOBBY MODAL -->
+    <div id="modal-lobby" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 hidden flex items-center justify-center p-4">
+        <div class="bg-wna-card border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
+            <button onclick="closeLobbyModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-base">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+
+            <h2 class="font-display font-bold text-xl text-amber-400 mb-1">Room Multiplayer Online</h2>
+            <p class="text-xs text-slate-400 mb-6">Buat room baru atau gabung ke room teman dengan kode room.</p>
+
+            <div class="space-y-4">
+                <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
+                    <button id="tab-btn-create" onclick="switchLobbyTab('create')" class="flex-1 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white transition-all">
+                        BUAT ROOM
+                    </button>
+                    <button id="tab-btn-join" onclick="switchLobbyTab('join')" class="flex-1 py-2 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all">
+                        GABUNG ROOM
+                    </button>
+                </div>
+
+                <div id="form-create-room" class="space-y-4">
+                    <div>
+                        <label class="block text-xs text-slate-400 font-bold mb-1">Nama Pemain (Anda):</label>
+                        <input type="text" id="input-host-name" value="Expat Host" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 font-bold mb-1">Batas Putaran Permainan:</label>
+                        <select id="select-turn-limit" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                            <option value="10">10 Putaran (Fast Mode - 10 Menit)</option>
+                            <option value="20" selected>20 Putaran (Standar Mode - 20 Menit)</option>
+                            <option value="30">30 Putaran (Long Mode - 30 Menit)</option>
+                            <option value="50">50 Putaran (Marathon - 45 Menit)</option>
+                        </select>
+                    </div>
+                    <button onclick="submitCreateRoom()" class="w-full bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-xs py-3 rounded-xl transition-all shadow-lg shadow-emerald-500/20">
+                        BUAT ROOM ONLINE
+                    </button>
+                </div>
+
+                <div id="form-join-room" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-xs text-slate-400 font-bold mb-1">Nama Pemain (Anda):</label>
+                        <input type="text" id="input-guest-name" value="Expat Player" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-white focus:outline-none focus:border-amber-400">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-slate-400 font-bold mb-1">Masukkan Kode Room:</label>
+                        <input type="text" id="input-room-code" placeholder="Misal: WNA-8392" class="w-full bg-slate-900 border border-slate-700 rounded-xl px-3 py-2 text-xs text-amber-400 font-mono font-bold uppercase focus:outline-none focus:border-amber-400">
+                    </div>
+                    <button onclick="submitJoinRoom()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-xs py-3 rounded-xl transition-all shadow-lg shadow-indigo-600/20">
+                        GABUNG KE GAME
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN JAVASCRIPT LOGIC -->
+    <script>
+        const TILES_DATA = [
+            { id: 0, name: "START", type: "start", icon: "🚀", desc: "Dapat +5 LP setiap lewat/berhenti." },
+            { id: 1, name: "Canggu Villa", type: "property", level: 1, cost: 4, rent: 3, icon: "🏖️", province: "Bali" },
+            { id: 2, name: "Special Card", type: "special", icon: "🎁", desc: "Keberuntungan atau Tantangan." },
+            { id: 3, name: "Ubud Yoga", type: "property", level: 1, cost: 4, rent: 3, icon: "🧘", province: "Bali" },
+            { id: 4, name: "Free Parking", type: "parking", icon: "☕", desc: "Istirahat tanpa aksi." },
+            { id: 5, name: "Menteng Residence", type: "property", level: 3, cost: 8, rent: 8, icon: "🏛️", province: "Jakarta" },
+            { id: 6, name: "Special Card", type: "special", icon: "🎁", desc: "Keberuntungan atau Tantangan." },
+            { id: 7, name: "Senopati Lounge", type: "property", level: 3, cost: 8, rent: 8, icon: "🍸", province: "Jakarta" },
+            { id: 8, name: "Grammar Jail", type: "jail", icon: "🔒", desc: "Terjebak 1 turn atau bayar 3 LP." },
+            { id: 9, name: "Bandung Hub", type: "property", level: 2, cost: 6, rent: 5, icon: "🎨", province: "Jawa Barat" },
+            { id: 10, name: "Airport Transit", type: "airport", icon: "✈️", desc: "Pindah ke mana saja (3 LP)." },
+            { id: 11, name: "Dago Peak", type: "property", level: 2, cost: 6, rent: 5, icon: "⛰️", province: "Jawa Barat" },
+            { id: 12, name: "Special Card", type: "special", icon: "🎁", desc: "Keberuntungan atau Tantangan." },
+            { id: 13, name: "Malioboro Street", type: "property", level: 2, cost: 6, rent: 5, icon: "🚲", province: "Yogyakarta" },
+            { id: 14, name: "Spelling Bee", type: "challenge", challengeType: "anagram", icon: "🔤", desc: "Susun kata dari huruf acak!" },
+            { id: 15, name: "Prambanan View", type: "property", level: 2, cost: 6, rent: 5, icon: "🛕", province: "Yogyakarta" },
+            { id: 16, name: "Special Card", type: "special", icon: "🎁", desc: "Keberuntungan atau Tantangan." },
+            { id: 17, name: "Surabaya Plaza", type: "property", level: 2, cost: 6, rent: 5, icon: "🏙️", province: "Jawa Timur" },
+            { id: 18, name: "Go To Jail", type: "gotojail", icon: "🚔", desc: "Langsung menuju Grammar Jail!" },
+            { id: 19, name: "Bromo Cottage", type: "property", level: 2, cost: 6, rent: 5, icon: "🌋", province: "Jawa Timur" },
+            { id: 20, name: "Speed Run", type: "challenge", challengeType: "unscramble", icon: "⚡", desc: "Urutkan kata menjadi kalimat!" },
+            { id: 21, name: "Medan City", type: "property", level: 1, cost: 4, rent: 3, icon: "🍜", province: "Sumatra" },
+            { id: 22, name: "Special Card", type: "special", icon: "🎁", desc: "Keberuntungan atau Tantangan." },
+            { id: 23, name: "Lake Toba Resort", type: "property", level: 2, cost: 6, rent: 5, icon: "🌊", province: "Sumatra" },
+            { id: 24, name: "Bus Stop", type: "bus", icon: "🚌", desc: "Maju 3 langkah gratis." },
+            { id: 25, name: "Makassar Port", type: "property", level: 1, cost: 4, rent: 3, icon: "⛵", province: "Sulawesi" },
+            { id: 26, name: "Special Card", type: "special", icon: "🎁", desc: "Keberuntungan atau Tantangan." },
+            { id: 27, name: "Toraja Heritage", type: "property", level: 2, cost: 6, rent: 5, icon: "🏡", province: "Sulawesi" },
+            { id: 28, name: "Immigration Check", type: "tax", icon: "🛂", desc: "Denda KITAS (Bayar 2 LP per aset)." },
+            { id: 29, name: "Balikpapan Hub", type: "property", level: 2, cost: 6, rent: 5, icon: "🛢️", province: "Kalimantan" },
+            { id: 30, name: "IKN Capitol", type: "property", level: 3, cost: 8, rent: 8, icon: "🏛️", province: "IKN Nusantara" },
+            { id: 31, name: "Special Card", type: "special", icon: "🎁", desc: "Keberuntungan atau Tantangan." },
+            { id: 32, name: "Lombok Beach", type: "property", level: 2, cost: 6, rent: 5, icon: "🏝️", province: "Nusa Tenggara" },
+            { id: 33, name: "Sentence Duel", type: "challenge", challengeType: "unscramble", icon: "⚔️", desc: "Tantangan urutkan kalimat." },
+            { id: 34, name: "Komodo Haven", type: "property", level: 3, cost: 8, rent: 8, icon: "🐉", province: "Nusa Tenggara" },
+            { id: 35, name: "Special Card", type: "special", icon: "🎁", desc: "Keberuntungan atau Tantangan." },
+            { id: 36, name: "Raja Ampat Cove", type: "property", level: 3, cost: 8, rent: 8, icon: "🐠", province: "Papua" },
+            { id: 37, name: "Jayapura Peak", type: "property", level: 1, cost: 4, rent: 3, icon: "🌲", province: "Papua" },
+            { id: 38, name: "Special Card", type: "special", icon: "🎁", desc: "Keberuntungan atau Tantangan." },
+            { id: 39, name: "Boss Challenge", type: "boss", icon: "👑", desc: "Soal Hard untuk bonus +5 LP." }
+        ];
+
+        const QUIZ_BANK = {
+            Easy: [
+                { q: "What is the past form of the verb 'BUY'?", options: ["Buyed", "Bought", "Buying", "Buys"], ans: 1 },
+                { q: "Choose the correct pronoun: 'Sarah loved the painting, so she bought ___ immediately.'", options: ["they", "it", "them", "its"], ans: 1 },
+                { q: "Complete the sentence: 'They ___ lived in Jakarta since 2018.'", options: ["has", "have", "are", "was"], ans: 1 },
+                { q: "Which adjective describes someone who loves to share?", options: ["Generous", "Stingy", "Arrogant", "Timid"], ans: 0 },
+                { q: "Identify the signal word usually used in Simple Past Tense:", options: ["Tomorrow", "Yesterday", "Right now", "Next week"], ans: 1 },
+                { q: "Choose the correct response to 'Congratulations on winning the contest!':", options: ["You're welcome", "Thank you very much!", "I don't care", "Same to you"], ans: 1 },
+                { q: "Which text type aims to describe a specific person, place, or thing?", options: ["Narrative Text", "Descriptive Text", "Procedure Text", "News Item"], ans: 1 },
+                { q: "What is the plural form of the word 'CHILD'?", options: ["Childs", "Children", "Childrens", "Childes"], ans: 1 },
+                { q: "'My father ___ to his office by car every morning.'", options: ["go", "goes", "went", "going"], ans: 1 },
+                { q: "What is the antonym of the word 'ANCIENT'?", options: ["Old", "Modern", "Historic", "Traditional"], ans: 1 }
+            ],
+            Medium: [
+                { q: "Change to Passive Voice: 'The mechanic repaired my car yesterday.'", options: ["My car is repaired by the mechanic.", "My car was repaired by the mechanic yesterday.", "My car had repaired by mechanic.", "The mechanic was repaired by my car."], ans: 1 },
+                { q: "Complete the sentence expressing intention: 'I ___ study abroad after graduating from high school.'", options: ["am going to", "was", "have been", "would had"], ans: 0 },
+                { q: "What is the main communicative purpose of a Recount Text?", options: ["To amuse or entertain the readers", "To retell past events or experiences", "To describe a general phenomenon", "To persuade readers to agree"], ans: 1 },
+                { q: "Choose the correct comparative form: 'This grammar exercise is ___ than the previous one.'", options: ["more difficult", "most difficult", "difficultier", "as difficult"], ans: 0 },
+                { q: "Reported Speech: He said, 'I am tired.' -> He said that he ___ tired.", options: ["is", "was", "were", "had been"], ans: 1 },
+                { q: "What does the word 'Heroic' mean in a Narrative legend story?", options: ["Cowardly and afraid", "Brave and showing great courage", "Cruel and greedy", "Funny and silly"], ans: 1 },
+                { q: "Change to Passive: 'Shakespeare wrote Hamlet.'", options: ["Hamlet is written by Shakespeare.", "Hamlet was written by Shakespeare.", "Hamlet was write by Shakespeare.", "Shakespeare was written Hamlet."], ans: 1 }
+            ],
+            Hard: [
+                { q: "Complete the Conditional Type 2 sentence: 'If I ___ enough money, I would buy a new laptop.'", options: ["have", "had", "will have", "would have"], ans: 1 },
+                { q: "Identify the generic structure of a Narrative Text in correct order:", options: ["Orientation - Complication - Resolution", "Thesis - Arguments - Reiteration", "Goal - Materials - Steps", "Identification - Description"], ans: 0 },
+                { q: "What does the phrasal verb 'LOOK AFTER' mean?", options: ["To search for something", "To take care of someone", "To examine quickly", "To resemble parents"], ans: 1 },
+                { q: "Select the sentence with correct Conjunction of Contrast:", options: ["Although it rained heavily, they went football training.", "Because it rained, they went training.", "In spite of he was sick, he attended class.", "However it was cold, he wore a t-shirt."], ans: 0 },
+                { q: "What is the synonym of 'PRESERVE' in historical recount contexts?", options: ["Destroy", "Maintain/Protect", "Abandon", "Neglect"], ans: 1 },
+                { q: "Complete the Conditional Type 1: 'If she ___ hard, she will pass the national examination.'", options: ["studies", "studied", "will study", "study"], ans: 0 },
+                { q: "Complete Conditional Type 3: 'If they had trained harder, they ___ the final match.'", options: ["would win", "would have won", "will win", "had won"], ans: 1 },
+                { q: "What does the idiom 'BITE THE BULLET' mean?", options: ["To eat something hard", "To face a difficult situation with courage", "To shoot a gun in public", "To avoid responsibilities"], ans: 1 }
+            ]
+        };
+
+        const usedQuestions = { Easy: [], Medium: [], Hard: [] };
+
+        const UNSCRAMBLE_DATA = [
+            { words: ["I", "bought", "a", "new", "laptop", "yesterday"], correct: "I bought a new laptop yesterday" },
+            { words: ["They", "are", "visiting", "Bali", "next", "week"], correct: "They are visiting Bali next week" },
+            { words: ["She", "speaks", "Indonesian", "very", "fluently"], correct: "She speaks Indonesian very fluently" },
+            { words: ["We", "must", "renew", "our", "visa", "tomorrow"], correct: "We must renew our visa tomorrow" },
+            { words: ["He", "loves", "to", "eat", "nasi", "goreng"], correct: "He loves to eat nasi goreng" },
+            { words: ["The", "flight", "to", "Jakarta", "was", "delayed"], correct: "The flight to Jakarta was delayed" },
+            { words: ["They", "stayed", "at", "a", "beautiful", "resort"], correct: "They stayed at a beautiful resort" },
+            { words: ["Learning", "a", "new", "language", "is", "fun"], correct: "Learning a new language is fun" },
+            { words: ["She", "is", "studying", "English", "at", "school"], correct: "She is studying English at school" },
+            { words: ["Do", "you", "have", "a", "valid", "passport"], correct: "Do you have a valid passport" }
+        ];
+
+        const ANAGRAM_WORDS = [
+            "VOCABULARY", "CULTURE", "IDIOMS", "PROPERTY", "LANGUAGE",
+            "PASSPORT", "TOURISM", "BUILDING", "GRAMMAR", "SIMULATOR"
+        ];
+
+        // Helper function to shuffle any string into a randomized letter array
+        function shuffleWordLetters(word) {
+            let letters = word.split('');
+            let shuffled = [...letters];
+            
+            // Fisher-Yates shuffle algorithm to ensure true randomness
+            do {
+                for (let i = shuffled.length - 1; i > 0; i--) {
+                    const j = Math.floor(Math.random() * (i + 1));
+                    [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
+                }
+            } while (shuffled.join('') === word && letters.length > 1); // Avoid yielding the unshuffled target word
+
+            return shuffled.join(' - ');
+        }
+
+        let gameState = {
+            roomCode: "LOCAL-" + Math.floor(1000 + Math.random() * 9000),
+            isHost: true,
+            isGameStarted: false,
+            turnLimit: 20,
+            currentTurnRound: 1,
+            activePlayerIndex: 0,
+            players: [
+                { id: 0, name: "Expat 1", lp: 10, pos: 0, inJail: false, isHost: true },
+                { id: 1, name: "Expat 2", lp: 10, pos: 0, inJail: false, isHost: false }
+            ],
+            properties: {}
+        };
+
+        let diceTimer = null;
+        let quizTimer = null;
+        let propertyTimer = null;
+        let currentDiceRoll = 1;
+        let activeQuizAnswer = null;
+
+        window.addEventListener('DOMContentLoaded', () => {
+            renderBoard();
+            updateHUD();
+            logEvent("Game diinisialisasi. Tekan tombol 'START THE GAME' di tengah papan untuk mulai!");
+            updateRoomCodeUI();
+        });
+
+        function renderBoard() {
+            const board = document.getElementById('board-grid');
+            const tiles = board.querySelectorAll('.tile');
+            tiles.forEach(t => t.remove());
+
+            const gridPositions = get11x11TilePositions();
+
+            TILES_DATA.forEach((tile, idx) => {
+                const pos = gridPositions[idx];
+                const tileEl = document.createElement('div');
+                tileEl.className = 'tile';
+                tileEl.style.gridColumn = pos.col;
+                tileEl.style.gridRow = pos.row;
+                tileEl.onclick = () => renderTileDetails(tile.id);
+
+                let headerBg = '#334155';
+                if (tile.type === 'property') {
+                    if (tile.level === 1) headerBg = '#10B981';
+                    if (tile.level === 2) headerBg = '#06B6D4';
+                    if (tile.level === 3) headerBg = '#F59E0B';
+                }
+
+                tileEl.innerHTML = `
+                    <div class="tile-header" style="background-color: ${headerBg};">${tile.province || tile.type}</div>
+                    <div class="text-base md:text-lg my-auto">${tile.icon}</div>
+                    <div class="tile-title">${tile.name}</div>
+                    <div id="tokens-tile-${tile.id}" class="flex space-x-1 absolute bottom-1 left-1"></div>
+                `;
+
+                board.appendChild(tileEl);
+            });
+
+            renderPlayerTokens();
+        }
+
+        function get11x11TilePositions() {
+            let pos = [];
+            for (let c = 1; c <= 11; c++) pos.push({ col: c, row: 1 });
+            for (let r = 2; r <= 11; r++) pos.push({ col: 11, row: r });
+            for (let c = 10; c >= 1; c--) pos.push({ col: c, row: 11 });
+            for (let r = 10; r >= 2; r--) pos.push({ col: 1, row: r });
+            return pos;
+        }
+
+        function renderPlayerTokens() {
+            document.querySelectorAll('.player-token').forEach(el => el.remove());
+
+            gameState.players.forEach((p, idx) => {
+                const tileContainer = document.getElementById(`tokens-tile-${p.pos}`);
+                if (tileContainer) {
+                    const token = document.createElement('div');
+                    token.className = `player-token p-${idx}`;
+                    token.title = p.name;
+                    tileContainer.appendChild(token);
+                }
+            });
+        }
+
+        function updateHUD() {
+            const listContainer = document.getElementById('players-list-hud');
+            listContainer.innerHTML = '';
+
+            gameState.players.forEach((p, idx) => {
+                const isActive = idx === gameState.activePlayerIndex;
+                const card = document.createElement('div');
+                card.className = `p-2.5 rounded-xl border flex justify-between items-center transition-all ${
+                    isActive ? 'bg-slate-800 border-amber-400/60 shadow-lg' : 'bg-slate-900/60 border-slate-800 opacity-80'
+                }`;
+
+                card.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 rounded-full p-${idx}"></div>
+                        <div>
+                            <div class="font-bold text-xs text-white flex items-center space-x-1">
+                                <span>${p.name}</span>
+                                ${p.isHost ? '<span class="text-[0.55rem] bg-amber-500/20 text-amber-300 px-1.5 py-0.5 rounded border border-amber-500/30">HOST</span>' : ''}
+                            </div>
+                            <div class="text-[0.65rem] text-slate-400">Tile: ${TILES_DATA[p.pos].name}</div>
+                        </div>
+                    </div>
+                    <div class="font-mono font-bold text-amber-400 text-sm">${p.lp} LP</div>
+                `;
+                listContainer.appendChild(card);
+            });
+
+            document.getElementById('active-player-name').innerText = gameState.players[gameState.activePlayerIndex].name;
+            document.getElementById('turn-counter').innerText = `${gameState.currentTurnRound} / ${gameState.turnLimit}`;
+        }
+
+        function logEvent(msg) {
+            const box = document.getElementById('game-log-box');
+            const entry = document.createElement('p');
+            entry.className = "text-slate-300";
+            entry.innerHTML = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            box.appendChild(entry);
+            box.scrollTop = box.scrollHeight;
+        }
+
+        function renderTileDetails(tileId) {
+            const tile = TILES_DATA[tileId];
+            const box = document.getElementById('tile-info-box');
+            const ownerProp = gameState.properties[tileId];
+
+            let ownerText = "Belum Ada Pemilik";
+            if (ownerProp) {
+                const owner = gameState.players.find(p => p.id === ownerProp.ownerId);
+                ownerText = owner ? owner.name : "Milik Pemain";
+            }
+
+            box.innerHTML = `
+                <div class="font-bold text-amber-400 text-sm">${tile.icon} ${tile.name}</div>
+                <div class="text-slate-300">Tipe: <span class="uppercase font-semibold text-white">${tile.type}</span></div>
+                ${tile.cost ? `<div class="text-slate-300">Harga Beli: <span class="font-mono text-amber-300 font-bold">${tile.cost} LP</span></div>` : ''}
+                ${tile.rent ? `<div class="text-slate-300">Sewa Lawan: <span class="font-mono text-emerald-400 font-bold">${tile.rent} LP</span></div>` : ''}
+                <div class="text-slate-300">Status: <span class="text-indigo-300 font-semibold">${ownerText}</span></div>
+                ${tile.desc ? `<div class="text-slate-400 text-[0.65rem] italic mt-1">${tile.desc}</div>` : ''}
+            `;
+        }
+
+        let diceTimerSeconds = 10;
+
+        function startDiceTurnTimer() {
+            clearInterval(diceTimer);
+            diceTimerSeconds = 10;
+            updateDiceTimerUI();
+
+            diceTimer = setInterval(() => {
+                diceTimerSeconds--;
+                updateDiceTimerUI();
+
+                if (diceTimerSeconds <= 0) {
+                    clearInterval(diceTimer);
+                    logEvent("⏱️ Waktu lempar dadu habis! Auto-Roll dijalankan otomatis.");
+                    rollDiceAction();
+                }
+            }, 1000);
+        }
+
+        function updateDiceTimerUI() {
+            const textEl = document.getElementById('dice-timer-text');
+            const barEl = document.getElementById('dice-timer-progress');
+            if (textEl && barEl) {
+                textEl.innerText = `${diceTimerSeconds}s`;
+                barEl.style.width = `${(diceTimerSeconds / 10) * 100}%`;
+            }
+        }
+
+        function startGameMaster() {
+            gameState.isGameStarted = true;
+            document.getElementById('center-start-container').classList.add('hidden');
+            document.getElementById('center-room-box').classList.add('hidden');
+            document.getElementById('btn-roll-dice').disabled = false;
+            document.getElementById('dice-result-text').innerText = "Silakan kocok dadu atau tunggu auto-roll!";
+            logEvent("🚀 Permainan resmi dimulai! Silakan lempar dadu di sidebar kanan.");
+            startDiceTurnTimer();
+        }
+
+        function rollDiceAction() {
+            if (!gameState.isGameStarted) return;
+
+            const btn = document.getElementById('btn-roll-dice');
+            btn.disabled = true;
+            clearInterval(diceTimer);
+
+            const diceCube = document.getElementById('dice-cube');
+            const rollVal = Math.floor(Math.random() * 6) + 1;
+            currentDiceRoll = rollVal;
+
+            const rotations = [
+                { x: 0, y: 0 },
+                { x: 0, y: -90 },
+                { x: 0, y: -180 },
+                { x: 0, y: 90 },
+                { x: -90, y: 0 },
+                { x: 90, y: 0 }
+            ];
+            const rot = rotations[rollVal - 1];
+            diceCube.style.transform = `rotateX(${rot.x + 720}deg) rotateY(${rot.y + 720}deg)`;
+
+            document.getElementById('dice-result-text').innerText = `Dadu keluar angka ${rollVal}!`;
+
+            setTimeout(() => {
+                movePlayerSteps(rollVal);
+            }, 1200);
+        }
+
+        function movePlayerSteps(steps) {
+            const player = gameState.players[gameState.activePlayerIndex];
+            let remaining = steps;
+
+            const interval = setInterval(() => {
+                player.pos = (player.pos + 1) % TILES_DATA.length;
+                if (player.pos === 0) {
+                    player.lp += 5;
+                    logEvent(`<b>${player.name}</b> melewati START dan mendapat +5 LP!`);
+                }
+                renderPlayerTokens();
+                remaining--;
+
+                if (remaining <= 0) {
+                    clearInterval(interval);
+                    triggerTileAction(player);
+                }
+            }, 250);
+        }
+
+        function getRandomQuestion(diff) {
+            const allQuestions = QUIZ_BANK[diff];
+            if (!allQuestions || allQuestions.length === 0) return null;
+
+            if (usedQuestions[diff].length >= allQuestions.length) {
+                usedQuestions[diff] = [];
+            }
+
+            let randomIndex;
+            do {
+                randomIndex = Math.floor(Math.random() * allQuestions.length);
+            } while (usedQuestions[diff].includes(randomIndex) && usedQuestions[diff].length < allQuestions.length);
+
+            usedQuestions[diff].push(randomIndex);
+            return allQuestions[randomIndex];
+        }
+
+        function triggerTileAction(player) {
+            const tile = TILES_DATA[player.pos];
+            logEvent(`<b>${player.name}</b> mendarat di <b>${tile.name}</b>.`);
+            renderTileDetails(tile.id);
+
+            let diff = "Easy";
+            if (currentDiceRoll >= 3 && currentDiceRoll <= 4) diff = "Medium";
+            if (currentDiceRoll >= 5) diff = "Hard";
+
+            if (tile.type === 'challenge') {
+                openChallengeModal(tile.challengeType);
+            } else {
+                openStandardQuizModal(diff, tile);
+            }
+        }
+
+        function openStandardQuizModal(diff, tile) {
+            const modal = document.getElementById('modal-quiz');
+            const qObj = getRandomQuestion(diff);
+            if (!qObj) return;
+
+            activeQuizAnswer = qObj.ans;
+
+            document.getElementById('quiz-level-badge').innerText = `Soal ${diff} (Dadu: ${currentDiceRoll})`;
+            document.getElementById('quiz-question-text').innerText = qObj.q;
+
+            const area = document.getElementById('quiz-content-area');
+            area.innerHTML = '';
+
+            qObj.options.forEach((opt, idx) => {
+                const b = document.createElement('button');
+                b.className = "w-full bg-slate-900 hover:bg-indigo-600/30 border border-slate-700 hover:border-indigo-500 rounded-xl p-3 text-xs text-left text-white transition-all";
+                b.innerText = `${String.fromCharCode(65 + idx)}. ${opt}`;
+                b.onclick = () => submitQuizAnswer(idx === activeQuizAnswer, tile);
+                area.appendChild(b);
+            });
+
+            modal.classList.remove('hidden');
+            startQuizTimer(() => submitQuizAnswer(false, tile));
+        }
+
+        function openChallengeModal(type) {
+            const modal = document.getElementById('modal-quiz');
+            const area = document.getElementById('quiz-content-area');
+            area.innerHTML = '';
+
+            if (type === 'unscramble') {
+                const item = UNSCRAMBLE_DATA[Math.floor(Math.random() * UNSCRAMBLE_DATA.length)];
+                document.getElementById('quiz-level-badge').innerText = "Tantangan: Mengurutkan Kalimat";
+                document.getElementById('quiz-question-text').innerText = "Urutkan kata-kata berikut menjadi kalimat Bahasa Inggris yang benar:";
+
+                const wordsBox = document.createElement('div');
+                wordsBox.className = "flex flex-wrap gap-2 mb-4 bg-slate-900 p-3 rounded-xl border border-slate-800";
+                
+                const shuffledWords = [...item.words].sort(() => Math.random() - 0.5);
+                let userSentence = [];
+
+                const resultDisplay = document.createElement('div');
+                resultDisplay.className = "font-bold text-amber-400 text-xs mb-3 min-h-[20px]";
+
+                shuffledWords.forEach(w => {
+                    const btn = document.createElement('button');
+                    btn.className = "bg-slate-800 hover:bg-indigo-600 text-xs px-2.5 py-1.5 rounded-lg border border-slate-700";
+                    btn.innerText = w;
+                    btn.onclick = () => {
+                        userSentence.push(w);
+                        resultDisplay.innerText = userSentence.join(" ");
+                    };
+                    wordsBox.appendChild(btn);
+                });
+
+                const submitBtn = document.createElement('button');
+                submitBtn.className = "w-full bg-emerald-500 text-slate-950 font-bold text-xs py-2.5 rounded-xl";
+                submitBtn.innerText = "KIRIM JAWABAN";
+                submitBtn.onclick = () => {
+                    const isCorrect = userSentence.join(" ") === item.correct;
+                    submitQuizAnswer(isCorrect, TILES_DATA[gameState.players[gameState.activePlayerIndex].pos]);
+                };
+
+                area.appendChild(wordsBox);
+                area.appendChild(resultDisplay);
+                area.appendChild(submitBtn);
+
+            } else {
+                // ANAGRAM CHALLENGE: Pick a word and randomly scramble its letters dynamically
+                const targetWord = ANAGRAM_WORDS[Math.floor(Math.random() * ANAGRAM_WORDS.length)];
+                const dynamicScrambledText = shuffleWordLetters(targetWord);
+
+                document.getElementById('quiz-level-badge').innerText = "Tantangan: Menyusun Kata";
+                document.getElementById('quiz-question-text').innerText = `Susun huruf berikut menjadi kata vocabulary: ${dynamicScrambledText}`;
+
+                const input = document.createElement('input');
+                input.type = "text";
+                input.className = "w-full bg-slate-900 border border-slate-700 rounded-xl p-3 text-xs font-bold text-amber-400 uppercase mb-3 focus:outline-none focus:border-amber-400";
+                input.placeholder = "Ketik kata di sini...";
+
+                const submitBtn = document.createElement('button');
+                submitBtn.className = "w-full bg-emerald-500 text-slate-950 font-bold text-xs py-2.5 rounded-xl";
+                submitBtn.innerText = "KIRIM JAWABAN";
+                submitBtn.onclick = () => {
+                    const isCorrect = input.value.trim().toUpperCase() === targetWord;
+                    submitQuizAnswer(isCorrect, TILES_DATA[gameState.players[gameState.activePlayerIndex].pos]);
+                };
+
+                area.appendChild(input);
+                area.appendChild(submitBtn);
+            }
+
+            modal.classList.remove('hidden');
+            startQuizTimer(() => submitQuizAnswer(false, TILES_DATA[gameState.players[gameState.activePlayerIndex].pos]));
+        }
+
+        function startQuizTimer(onTimeout) {
+            let time = 10;
+            document.getElementById('quiz-timer').innerText = `${time}s`;
+            clearInterval(quizTimer);
+            quizTimer = setInterval(() => {
+                time--;
+                document.getElementById('quiz-timer').innerText = `${time}s`;
+                if (time <= 0) {
+                    clearInterval(quizTimer);
+                    onTimeout();
+                }
+            }, 1000);
+        }
+
+        function submitQuizAnswer(isCorrect, tile) {
+            clearInterval(quizTimer);
+            document.getElementById('modal-quiz').classList.add('hidden');
+
+            const player = gameState.players[gameState.activePlayerIndex];
+
+            if (isCorrect) {
+                player.lp += 2;
+                logEvent(`<b>${player.name}</b> menjawab soal dengan BENAR! (+2 LP)`);
+            } else {
+                logEvent(`<b>${player.name}</b> menjawab SALAH atau kehabisan waktu.`);
+            }
+
+            updateHUD();
+
+            if (tile.type === 'property') {
+                openPropertyDecisionModal(tile, isCorrect);
+            } else {
+                finishTurn();
+            }
+        }
+
+        function openPropertyDecisionModal(tile, passedQuiz) {
+            const modal = document.getElementById('modal-property');
+
+            document.getElementById('prop-modal-title').innerText = tile.name;
+            document.getElementById('prop-modal-subtitle').innerText = `${tile.province} - Level ${tile.level}`;
+            document.getElementById('prop-modal-cost').innerText = `${tile.cost} LP`;
+            document.getElementById('prop-modal-rent').innerText = `${tile.rent} LP`;
+
+            modal.classList.remove('hidden');
+
+            let time = 20;
+            document.getElementById('prop-timer').innerText = `${time}s`;
+            clearInterval(propertyTimer);
+            propertyTimer = setInterval(() => {
+                time--;
+                document.getElementById('prop-timer').innerText = `${time}s`;
+                if (time <= 0) {
+                    clearInterval(propertyTimer);
+                    skipPropertyAction();
+                }
+            }, 1000);
+        }
+
+        function buyPropertyAction() {
+            clearInterval(propertyTimer);
+            document.getElementById('modal-property').classList.add('hidden');
+
+            const p = gameState.players[gameState.activePlayerIndex];
+            const tile = TILES_DATA[p.pos];
+
+            if (p.lp >= tile.cost) {
+                p.lp -= tile.cost;
+                gameState.properties[tile.id] = { ownerId: p.id, level: tile.level };
+                logEvent(`<b>${p.name}</b> berhasil membeli properti <b>${tile.name}</b>!`);
+            } else {
+                logEvent(`Poin LP <b>${p.name}</b> tidak cukup untuk membeli properti ini.`);
+            }
+
+            updateHUD();
+            finishTurn();
+        }
+
+        function skipPropertyAction() {
+            clearInterval(propertyTimer);
+            document.getElementById('modal-property').classList.add('hidden');
+            finishTurn();
+        }
+
+        function finishTurn() {
+            gameState.activePlayerIndex = (gameState.activePlayerIndex + 1) % gameState.players.length;
+            if (gameState.activePlayerIndex === 0) {
+                gameState.currentTurnRound++;
+            }
+
+            updateHUD();
+
+            if (gameState.currentTurnRound > gameState.turnLimit) {
+                alert("Permainan Selesai! Menghitung pemenang...");
+                logEvent("--- PERMAINAN SELESAI ---");
+                document.getElementById('btn-roll-dice').disabled = true;
+                clearInterval(diceTimer);
+            } else {
+                document.getElementById('btn-roll-dice').disabled = false;
+                startDiceTurnTimer();
+            }
+        }
+
+        function openLobbyModal() {
+            document.getElementById('modal-lobby').classList.remove('hidden');
+        }
+
+        function closeLobbyModal() {
+            document.getElementById('modal-lobby').classList.add('hidden');
+        }
+
+        function switchLobbyTab(tab) {
+            const btnCreate = document.getElementById('tab-btn-create');
+            const btnJoin = document.getElementById('tab-btn-join');
+            const formCreate = document.getElementById('form-create-room');
+            const formJoin = document.getElementById('form-join-room');
+
+            if (tab === 'create') {
+                btnCreate.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white transition-all";
+                btnJoin.className = "flex-1 py-2 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all";
+                formCreate.classList.remove('hidden');
+                formJoin.classList.add('hidden');
+            } else {
+                btnJoin.className = "flex-1 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white transition-all";
+                btnCreate.className = "flex-1 py-2 text-xs font-bold rounded-lg text-slate-400 hover:text-white transition-all";
+                formJoin.classList.remove('hidden');
+                formCreate.classList.add('hidden');
+            }
+        }
+
+        function submitCreateRoom() {
+            const hostName = document.getElementById('input-host-name').value || "Expat Host";
+            const turns = parseInt(document.getElementById('select-turn-limit').value);
+            
+            gameState.roomCode = "WNA-" + Math.floor(1000 + Math.random() * 9000);
+            gameState.isHost = true;
+            gameState.turnLimit = turns;
+            gameState.players[0].name = hostName;
+
+            updateRoomCodeUI();
+            closeLobbyModal();
+
+            logEvent(`Room dibuat! Kode Room: <b>${gameState.roomCode}</b>. Klik START THE GAME untuk mulai.`);
+        }
+
+        function submitJoinRoom() {
+            const guestName = document.getElementById('input-guest-name').value || "Expat Player";
+            const code = document.getElementById('input-room-code').value.trim().toUpperCase();
+
+            if (!code) {
+                alert("Masukkan Kode Room terlebih dahulu!");
+                return;
+            }
+
+            gameState.roomCode = code;
+            gameState.isHost = false;
+            gameState.players[1].name = guestName;
+
+            updateRoomCodeUI();
+            closeLobbyModal();
+            updateHUD();
+
+            logEvent(`Berhasil bergabung ke room <b>${gameState.roomCode}</b> sebagai <b>${guestName}</b>!`);
+        }
+
+        function updateRoomCodeUI() {
+            document.getElementById('room-code-badge').classList.remove('hidden');
+            document.getElementById('display-room-code').innerText = gameState.roomCode;
+            document.getElementById('center-room-code').innerText = gameState.roomCode;
+        }
+
+        function copyRoomCode() {
+            navigator.clipboard.writeText(gameState.roomCode).then(() => {
+                alert(`Kode Room (${gameState.roomCode}) telah disalin!`);
+            }).catch(() => {
+                alert(`Kode Room: ${gameState.roomCode}`);
+            });
+        }
+    </script>
+</body>
+</html>
+```
+
+### Summary of Changes:
+- Added the `shuffleWordLetters()` function using the Fisher-Yates algorithm.
+- Updated `openChallengeModal()` to run `shuffleWordLetters()` dynamically whenever an Anagram challenge tile is landed on.
+- Guaranteed that words will produce a different scrambled letter sequence every single round.

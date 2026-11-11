@@ -1,0 +1,70 @@
+{
+"Easy": [
+{"q": "[100 Pts] What is the past form of the verb 'BUY'?", "options": ["Buyed", "Bought", "Buying", "Buys"], "ans": 1},
+{"q": "[100 Pts] Choose the correct pronoun: 'Sarah loved the painting, so she bought ___ immediately.'", "options": ["they", "it", "them", "its"], "ans": 1},
+{"q": "[100 Pts] Complete the sentence: 'They ___ lived in Jakarta since 2018.'", "options": ["has", "have", "are", "was"], "ans": 1},
+{"q": "[100 Pts] Which adjective describes someone who loves to share?", "options": ["Generous", "Stingy", "Arrogant", "Timid"], "ans": 0},
+{"q": "[100 Pts] Identify the signal word usually used in Simple Past Tense:", "options": ["Tomorrow", "Yesterday", "Right now", "Next week"], "ans": 1},
+{"q": "[100 Pts] Choose the correct response to 'Congratulations on winning the contest!':", "options": ["You're welcome", "Thank you very much!", "I don't care", "Same to you"], "ans": 1},
+{"q": "[100 Pts] Which text type aims to describe a specific person, place, or thing?", "options": ["Narrative Text", "Descriptive Text", "Procedure Text", "News Item"], "ans": 1},
+{"q": "[100 Pts] What is the plural form of the word 'CHILD'?", "options": ["Childs", "Children", "Childrens", "Childes"], "ans": 1},
+{"q": "[100 Pts] 'My father ___ to his office by car every morning.'", "options": ["go", "goes", "went", "going"], "ans": 1},
+{"q": "[100 Pts] What is the antonym of the word 'ANCIENT'?", "options": ["Old", "Modern", "Historic", "Traditional"], "ans": 1},
+{"q": "[100 Pts] Complete the greeting: 'Good ___, teacher. How are you this morning?'", "options": ["Evening", "Morning", "Night", "Afternoon"], "ans": 1},
+{"q": "[100 Pts] Which of these is a possessive adjective?", "options": ["He", "Him", "His", "Himself"], "ans": 2},
+{"q": "[100 Pts] 'She is the ___ girl in our class.'", "options": ["smart", "smarter", "smartest", "more smart"], "ans": 2},
+{"q": "[100 Pts] What is the opposite of 'HEAVY'?", "options": ["Light", "Hard", "Strong", "Big"], "ans": 0},
+{"q": "[100 Pts] Complete the sentence: 'Listen! The baby ___ right now.'", "options": ["cries", "is crying", "cried", "was crying"], "ans": 1},
+{"q": "[100 Pts] Which word is a noun?", "options": ["Beautiful", "Quickly", "Cat", "Run"], "ans": 2},
+{"q": "[100 Pts] 'I don't have ___ money in my wallet today.'", "options": ["many", "any", "some", "few"], "ans": 1},
+{"q": "[100 Pts] Choose the correct spelling:", "options": ["Recieve", "Receive", "Receeve", "Recive"], "ans": 1},
+{"q": "[100 Pts] 'Rian and Doni ___ playing basketball in the schoolyard.'", "options": ["is", "am", "are", "was"], "ans": 2},
+{"q": "[100 Pts] What is the simple past tense of 'WRITE'?", "options": ["Wrote", "Written", "Writing", "Writes"], "ans": 0}
+],
+"Medium": [
+{"q": "[250 Pts] Change to Passive Voice: 'The mechanic repaired my car yesterday.'", "options": ["My car is repaired by the mechanic.", "My car was repaired by the mechanic yesterday.", "My car had repaired by mechanic.", "The mechanic was repaired by my car."], "ans": 1},
+{"q": "[250 Pts] Complete the sentence expressing intention: 'I ___ study abroad after graduating from high school.'", "options": ["am going to", "was", "have been", "would had"], "ans": 0},
+{"q": "[250 Pts] What is the main communicative purpose of a Recount Text?", "options": ["To amuse or entertain the readers", "To retell past events or experiences", "To describe a general phenomenon", "To persuade readers to agree"], "ans": 1},
+{"q": "[250 Pts] Choose the correct comparative form: 'This grammar exercise is ___ than the previous one.'", "options": ["more difficult", "most difficult", "difficultier", "as difficult"], "ans": 0},
+{"q": "[250 Pts] Reported Speech: He said, 'I am tired.' -> He said that he ___ tired.", "options": ["is", "was", "were", "had been"], "ans": 1},
+{"q": "[250 Pts] What does the word 'Heroic' mean in a Narrative legend story?", "options": ["Cowardly and afraid", "Brave and showing great courage", "Cruel and greedy", "Funny and silly"], "ans": 1},
+{"q": "[250 Pts] Change to Passive: 'Shakespeare wrote Hamlet.'", "options": ["Hamlet is written by Shakespeare.", "Hamlet was written by Shakespeare.", "Hamlet was write by Shakespeare.", "Shakespeare was written Hamlet."], "ans": 1},
+{"q": "[250 Pts] Identify the Orientation part in a Recount text:", "options": ["The conclusion of the story", "Introducing the WHO, WHERE, and WHEN of the event", "The climax of the conflict", "Steps to accomplish something"], "ans": 1},
+{"q": "[250 Pts] 'I would rather stay at home than ___ to the crowded mall.'", "options": ["go", "going", "went", "to go"], "ans": 0},
+{"q": "[250 Pts] Complete the expression of compliment: '___ a beautiful dress you are wearing today!'", "options": ["How", "What", "Which", "So"], "ans": 1}
+],
+"Hard": [
+{"q": "[500 Pts] Complete the Conditional Type 2 sentence: 'If I ___ enough money, I would buy a new laptop.'", "options": ["have", "had", "will have", "would have"], "ans": 1},
+{"q": "[500 Pts] Identify the generic structure of a Narrative Text in correct order:", "options": ["Orientation - Complication - Resolution", "Thesis - Arguments - Reiteration", "Goal - Materials - Steps", "Identification - Description"], "ans": 0},
+{"q": "[500 Pts] What does the phrasal verb 'LOOK AFTER' mean?", "options": ["To search for something", "To take care of someone", "To examine quickly", "To resemble parents"], "ans": 1},
+{"q": "[500 Pts] Select the sentence with correct Conjunction of Contrast:", "options": ["Although it rained heavily, they went football training.", "Because it rained, they went training.", "In spite of he was sick, he attended class.", "However it was cold, he wore a t-shirt."], "ans": 0},
+{"q": "[500 Pts] What is the synonym of 'PRESERVE' in historical recount contexts?", "options": ["Destroy", "Maintain/Protect", "Abandon", "Neglect"], "ans": 1},
+{"q": "[500 Pts] Complete the Conditional Type 1: 'If she ___ hard, she will pass the national examination.'", "options": ["studies", "studied", "will study", "study"], "ans": 0},
+{"q": "[500 Pts] Complete Conditional Type 3: 'If they had trained harder, they ___ the final match.'", "options": ["would win", "would have won", "will win", "had won"], "ans": 1},
+{"q": "[500 Pts] What does the idiom 'BITE THE BULLET' mean?", "options": ["To eat something hard", "To face a difficult situation with courage", "To shoot a gun in public", "To avoid responsibilities"], "ans": 1}
+],
+"Anagram": [
+{"scrambled": "V - O - C - A - B - U - L - A - R - Y", "correct": "VOCABULARY"},
+{"scrambled": "C - U - L - T - U - R - E", "correct": "CULTURE"},
+{"scrambled": "I - D - I - O - M - S", "correct": "IDIOMS"},
+{"scrambled": "P - R - O - P - E - R - T - Y", "correct": "PROPERTY"},
+{"scrambled": "L - A - N - G - U - A - G - E", "correct": "LANGUAGE"},
+{"scrambled": "P - A - S - S - P - O - R - T", "correct": "PASSPORT"},
+{"scrambled": "T - O - U - R - I - S - M", "correct": "TOURISM"},
+{"scrambled": "B - U - I - L - D - I - N - G", "correct": "BUILDING"},
+{"scrambled": "G - R - A - M - M - A - R", "correct": "GRAMMAR"},
+{"scrambled": "S - I - M - U - L - A - T - O - R", "correct": "SIMULATOR"}
+],
+"Unscramble": [
+{"words": ["I", "bought", "a", "new", "laptop", "yesterday"], "correct": "I bought a new laptop yesterday"},
+{"words": ["They", "are", "visiting", "Bali", "next", "week"], "correct": "They are visiting Bali next week"},
+{"words": ["She", "speaks", "Indonesian", "very", "fluently"], "correct": "She speaks Indonesian very fluently"},
+{"words": ["We", "must", "renew", "our", "visa", "tomorrow"], "correct": "We must renew our visa tomorrow"},
+{"words": ["He", "loves", "to", "eat", "nasi", "goreng"], "correct": "He loves to eat nasi goreng"},
+{"words": ["The", "flight", "to", "Jakarta", "was", "delayed"], "correct": "The flight to Jakarta was delayed"},
+{"words": ["They", "stayed", "at", "a", "beautiful", "resort"], "correct": "They stayed at a beautiful resort"},
+{"words": ["Learning", "a", "new", "language", "is", "fun"], "correct": "Learning a new language is fun"},
+{"words": ["She", "is", "studying", "English", "at", "school"], "correct": "She is studying English at school"},
+{"words": ["Do", "you", "have", "a", "valid", "passport"], "correct": "Do you have a valid passport"}
+]
+}
