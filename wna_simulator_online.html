@@ -1,0 +1,1356 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WNA Simulator: Expat Odyssey Online</title>
+    <!-- FontAwesome icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- Firebase SDK (v11.6.1) for Realtime Online Multiplayer -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { getFirestore, doc, setDoc, getDoc, onSnapshot, updateDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // Firebase Configuration setup
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'wna-simulator-online';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
+            apiKey: "demo-key",
+            authDomain: "demo.firebaseapp.com",
+            projectId: "demo-project",
+            storageBucket: "demo.appspot.com",
+            messagingSenderId: "123456789",
+            appId: "1:123456789:web:demo"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        window.fbApp = app;
+        window.fbAuth = auth;
+        window.fbDb = db;
+        window.appId = appId;
+    </script>
+
+    <style>
+        :root {
+            --bg-main: #0f172a;
+            --board-bg: #1e293b;
+            --gold: #f59e0b;
+            --emerald: #10b981;
+            --ruby: #ef4444;
+            --sapphire: #3b82f6;
+            --purple: #8b5cf6;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background: radial-gradient(circle at center, #1e1b4b 0%, #0f172a 100%);
+            color: #f8fafc;
+            min-height: 100vh;
+            margin: 0;
+            overflow-x: hidden;
+        }
+
+        .title-font {
+            font-family: 'Fredoka', cursive;
+        }
+
+        /* SQUARE MONOPOLY BOARD GRID CONTAINER (11x11 Grid) */
+        .board-container {
+            position: relative;
+            width: 100%;
+            max-width: 820px;
+            aspect-ratio: 1 / 1;
+            background: linear-gradient(145deg, #0b0f19 0%, #151d2a 100%);
+            padding: 12px;
+            border-radius: 28px;
+            box-shadow: 0 25px 60px -15px rgba(0, 0, 0, 0.9), 0 0 50px rgba(99, 102, 241, 0.15);
+            border: 4px solid #334155;
+            display: grid;
+            grid-template-columns: repeat(11, 1fr);
+            grid-template-rows: repeat(11, 1fr);
+            gap: 4px;
+        }
+
+        .tile {
+            position: relative;
+            background: #1e293b;
+            border: 1.5px solid #334155;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            padding: 3px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            user-select: none;
+            overflow: hidden;
+            z-index: 10;
+        }
+
+        .tile:hover {
+            transform: scale(1.15);
+            z-index: 30;
+            box-shadow: 0 0 20px rgba(245, 158, 11, 0.7);
+            border-color: #f59e0b;
+        }
+
+        /* Tile Category Colors */
+        .tile-prop-l1 { background: linear-gradient(135deg, #1e293b 50%, #065f46 100%); border-color: #10b981; }
+        .tile-prop-l2 { background: linear-gradient(135deg, #1e293b 50%, #1e40af 100%); border-color: #3b82f6; }
+        .tile-prop-l3 { background: linear-gradient(135deg, #1e293b 50%, #5b21b6 100%); border-color: #8b5cf6; }
+        .tile-special { background: linear-gradient(135deg, #1e293b 50%, #78350f 100%); border-color: #f59e0b; }
+        .tile-challenge { background: linear-gradient(135deg, #1e293b 50%, #831843 100%); border-color: #ec4899; }
+        .tile-jail { background: linear-gradient(135deg, #1e293b 50%, #450a0a 100%); border-color: #ef4444; }
+        .tile-start { background: linear-gradient(135deg, #065f46 0%, #047857 100%); border-color: #34d399; }
+
+        .tile-header {
+            font-size: 8.5px;
+            font-weight: 800;
+            text-transform: uppercase;
+            padding: 1px 2px;
+            border-radius: 4px;
+            text-align: center;
+            letter-spacing: 0.2px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .tile-body {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            flex-grow: 1;
+            text-align: center;
+        }
+
+        .tile-icon {
+            font-size: 15px;
+            margin-bottom: 2px;
+        }
+
+        .tile-price {
+            font-size: 9px;
+            font-weight: 800;
+            background: rgba(15, 23, 42, 0.85);
+            padding: 1px 4px;
+            border-radius: 4px;
+            color: #fbbf24;
+            border: 1px solid rgba(245, 158, 11, 0.3);
+        }
+
+        /* CENTER BOARD DECORATION AREA FOR 11x11 GRID */
+        .board-center {
+            grid-column: 2 / 11;
+            grid-row: 2 / 11;
+            background: radial-gradient(circle at center, #0f172a 0%, #090d16 100%);
+            border-radius: 20px;
+            border: 2px dashed #334155;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            padding: 24px;
+            overflow: hidden;
+        }
+
+        /* PLAYER TOKENS VISUAL */
+        .token-container {
+            position: absolute;
+            bottom: 3px;
+            right: 3px;
+            display: flex;
+            flex-wrap: wrap;
+            gap: 2px;
+            z-index: 30;
+        }
+
+        .player-token {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 9px;
+            font-weight: 900;
+            color: white;
+            border: 2px solid #ffffff;
+            box-shadow: 0 0 10px rgba(0,0,0,0.8);
+            animation: bounceToken 1.5s infinite ease-in-out;
+        }
+
+        @keyframes bounceToken {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-3px); }
+        }
+
+        .p-red { background: #ef4444; box-shadow: 0 0 8px #ef4444; }
+        .p-blue { background: #3b82f6; box-shadow: 0 0 8px #3b82f6; }
+        .p-green { background: #10b981; box-shadow: 0 0 8px #10b981; }
+        .p-yellow { background: #f59e0b; color: black; box-shadow: 0 0 8px #f59e0b; }
+
+        /* PROPERTY OWNERSHIP BADGE */
+        .owner-badge {
+            position: absolute;
+            top: 2px;
+            left: 2px;
+            width: 13px;
+            height: 13px;
+            border-radius: 50%;
+            border: 1.5px solid white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 7px;
+            font-weight: 900;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        /* 3D DICE CUBE */
+        .dice-stage {
+            width: 60px;
+            height: 60px;
+            perspective: 300px;
+        }
+
+        .dice-cube {
+            width: 100%;
+            height: 100%;
+            position: relative;
+            transform-style: preserve-3d;
+            transition: transform 1s cubic-bezier(0.17, 0.67, 0.83, 0.67);
+        }
+
+        .dice-face {
+            position: absolute;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #ffffff 0%, #e2e8f0 100%);
+            border: 2px solid #94a3b8;
+            border-radius: 14px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 28px;
+            color: #0f172a;
+            box-shadow: inset 0 0 10px rgba(0,0,0,0.1);
+        }
+
+        .face-1 { transform: translateZ(30px); }
+        .face-2 { transform: rotateY(180deg) translateZ(30px); }
+        .face-3 { transform: rotateY(90deg) translateZ(30px); }
+        .face-4 { transform: rotateY(-90deg) translateZ(30px); }
+        .face-5 { transform: rotateX(90deg) translateZ(30px); }
+        .face-6 { transform: rotateX(-90deg) translateZ(30px); }
+
+        .modal-overlay {
+            background: rgba(15, 23, 42, 0.88);
+            backdrop-filter: blur(8px);
+        }
+
+        /* WAITING ROOM SLOT STYLING */
+        .player-slot {
+            background: rgba(15, 23, 42, 0.6);
+            border: 2px dashed #334155;
+            transition: all 0.3s ease;
+        }
+
+        .player-slot.occupied {
+            background: rgba(30, 41, 59, 0.9);
+            border: 2px solid #6366f1;
+            box-shadow: 0 0 15px rgba(99, 102, 241, 0.2);
+        }
+    </style>
+</head>
+<body class="flex flex-col min-h-screen">
+
+    <!-- HEADER / NAVIGATION BAR -->
+    <header class="w-full bg-slate-900/90 border-b border-slate-800 px-4 py-3 flex items-center justify-between sticky top-0 z-50 backdrop-blur-md">
+        <div class="flex items-center space-x-3">
+            <div class="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white text-xl shadow-lg border border-amber-300">
+                <i class="fa-solid fa-passport"></i>
+            </div>
+            <div>
+                <h1 class="title-font text-xl md:text-2xl font-bold bg-gradient-to-r from-amber-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent">WNA Simulator</h1>
+                <p class="text-[10px] text-slate-400 font-semibold">Expat Odyssey - Monopoly Online Multiplayer</p>
+            </div>
+        </div>
+        <div class="flex items-center space-x-2">
+            <div id="roomCodeHeader" class="hidden bg-indigo-950 border border-indigo-500/40 text-amber-400 px-3 py-1.5 rounded-xl font-mono text-xs font-black">
+                ROOM: <span id="displayRoomCode">----</span>
+            </div>
+            <button onclick="openCatalogModal()" class="bg-slate-800 hover:bg-slate-700 text-indigo-300 border border-indigo-500/30 px-3 py-2 rounded-xl text-xs font-bold flex items-center space-x-2 transition">
+                <i class="fa-solid fa-book-open"></i>
+                <span class="hidden sm:inline">Katalog & Rule</span>
+            <!-- CENTER BOARD DECORATION AREA FOR 11x11 GRID -->
+            <div class="board-center">
+                <div class="w-16 h-16 rounded-3xl bg-gradient-to-tr from-amber-500 to-indigo-600 flex items-center justify-center text-white text-3xl shadow-2xl border-2 border-amber-300 mb-1">
+                    <i class="fa-solid fa-earth-asia"></i>
+                </div>
+                <h2 class="title-font text-xl md:text-2xl font-bold bg-gradient-to-r from-amber-400 via-indigo-300 to-emerald-400 bg-clip-text text-transparent">WNA SIMULATOR</h2>
+                
+                <!-- DISPLAY KODE ROOM DI TENGAH PAPAN BEGITU MEMBUAT / GABUNG ROOM -->
+                <div id="centerRoomCodeBox" class="mt-2 bg-slate-950/90 border border-amber-500/50 px-4 py-2 rounded-2xl flex items-center space-x-2 shadow-lg">
+                    <span class="text-[10px] text-slate-400 font-bold uppercase tracking-wider">KODE ROOM:</span>
+                    <span id="centerRoomCodeDisplay" class="font-mono font-black text-amber-400 text-sm tracking-widest">----</span>
+                    <button onclick="copyRoomCode()" title="Salin Kode" class="text-amber-400 hover:text-amber-300 text-xs pl-1 transition"><i class="fa-regular fa-copy"></i></button>
+                </div>
+
+                <div class="mt-3 flex items-center space-x-2 text-[10px] text-indigo-300 bg-indigo-950/80 border border-indigo-800/80 px-3 py-1 rounded-full">
+                    <i class="fa-solid fa-wifi text-emerald-400"></i>
+                    <span id="onlineStatusText">Status: Menunggu Permainan Dimulai</span>
+                </div>
+
+                <!-- HOST START BUTTON OVERLAY DI TENGAH PAPAN (LOBBY TUNGGU) -->
+                <div id="centerHostControl" class="mt-3 w-full max-w-xs">
+                    <button id="startGameBtn" onclick="handleStartGameFromHost()" class="hidden w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold py-2.5 rounded-xl text-xs uppercase tracking-wider shadow-lg transition transform active:scale-95">
+                        <i class="fa-solid fa-play mr-2"></i>MULAI GAME SEKARANG
+                    </button>
+                    <div id="waitingForHostText" class="hidden text-[11px] font-bold text-amber-300/90 bg-amber-950/60 border border-amber-500/30 px-3 py-1.5 rounded-xl animate-pulse">
+                        <i class="fa-solid fa-hourglass-half mr-1.5 text-amber-400"></i>Menunggu Host Memulai Game...
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- RIGHT SIDEBAR: CONTROLS (DICE & TURN) + PLAYER HUD + INFO -->
+        <aside class="w-full lg:w-80 flex flex-col gap-4">
+            
+            <!-- 1. DADU & STATUS GILIRAN -->
+            <div class="bg-slate-900/95 border-2 border-amber-500/40 rounded-2xl p-4 shadow-xl text-center relative">
+                <div class="w-full flex justify-between items-center bg-slate-950 border border-slate-800 p-2.5 rounded-xl mb-3">
+                    <div class="flex items-center space-x-2.5">
+                        <div id="turnDot" class="w-3.5 h-3.5 rounded-full bg-red-500 shadow-[0_0_10px_#ef4444] animate-pulse"></div>
+                        <div class="text-left">
+                            <span class="text-[9px] text-slate-400 uppercase font-bold block">GILIRAN</span>
+                            <span id="turnPlayerName" class="title-font text-base text-amber-400">Pemain 1</span>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900 px-2.5 py-1 rounded-lg border border-slate-800 text-right">
+                        <span class="text-[9px] text-slate-400 font-bold block">TURNS</span>
+                        <span id="turnLimitDisplay" class="text-xs font-black text-indigo-400">1 / 20</span>
+                    </div>
+                </div>
+
+                <!-- TIMER LEMPAR DADU -->
+                <div class="flex items-center justify-between bg-amber-950/40 border border-amber-500/30 px-3 py-1.5 rounded-xl mb-2 text-xs">
+                    <span class="text-amber-300 font-bold text-[11px]"><i class="fa-solid fa-stopwatch mr-1"></i>Waktu Turn:</span>
+                    <span id="diceTimerDisplay" class="font-mono font-black text-amber-400">10s</span>
+                </div>
+
+                <!-- 3D DICE CUBE IN SIDEBAR -->
+                <div class="flex flex-col items-center py-2">
+                    <div class="dice-stage">
+                        <div id="diceCube" class="dice-cube">
+                            <div class="dice-face face-1"><i class="fa-solid fa-dice-one"></i></div>
+                            <div class="dice-face face-2"><i class="fa-solid fa-dice-two"></i></div>
+                            <div class="dice-face face-3"><i class="fa-solid fa-dice-three"></i></div>
+                            <div class="dice-face face-4"><i class="fa-solid fa-dice-four"></i></div>
+                            <div class="dice-face face-5"><i class="fa-solid fa-dice-five"></i></div>
+                            <div class="dice-face face-6"><i class="fa-solid fa-dice-six"></i></div>
+                        </div>
+                    </div>
+                    <button id="rollBtn" onclick="handleRollDice()" class="mt-4 w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 title-font font-bold py-3 rounded-xl shadow-lg border border-amber-300 text-xs flex items-center justify-center space-x-2 transition transform active:scale-95">
+                        <i class="fa-solid fa-dice text-base"></i>
+                        <span>LEMPAR DADU</span>
+                    </button>
+                </div>
+            </div>
+
+            <!-- 2. STATUS PEMAIN -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                <h3 class="title-font text-slate-300 text-xs uppercase tracking-wider mb-3 flex items-center justify-between border-b border-slate-800 pb-2">
+                    <span><i class="fa-solid fa-users text-indigo-400 mr-2"></i>Daftar WNA / Expat</span>
+                    <span id="playerCountBadge" class="text-[10px] bg-indigo-950 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-800">1/4 Ready</span>
+                </h3>
+                <div id="playersList" class="flex flex-col gap-2.5">
+                    <!-- Dynamic Player HUD Cards -->
+                </div>
+            </div>
+
+            <!-- 3. INFORMASI TILE -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                <h3 class="title-font text-slate-300 text-xs uppercase tracking-wider mb-2 flex items-center border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-map-pin text-amber-400 mr-2"></i>Informasi Tile
+                </h3>
+                <div id="tileInfoBox" class="text-xs text-slate-400 min-h-[45px] flex items-center">
+                    <span class="italic"><i class="fa-solid fa-hand-pointer text-amber-400/80 mr-1.5"></i>Klik tile manapun untuk melihat detail.</span>
+                </div>
+            </div>
+
+            <!-- 4. LOG GAME -->
+            <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4 shadow-xl">
+                <h3 class="title-font text-slate-300 text-xs uppercase tracking-wider mb-2 flex items-center border-b border-slate-800 pb-2">
+                    <i class="fa-solid fa-terminal text-emerald-400 mr-2"></i>Informasi Sistem (Log)
+                </h3>
+                <div id="gameLog" class="bg-slate-950 rounded-xl p-2.5 border border-slate-800/80 text-[10px] h-28 overflow-y-auto text-slate-400 font-mono space-y-1">
+                    <div>[Sistem] Selamat datang di WNA Simulator Online!</div>
+                </div>
+            </div>
+        </aside>
+    </main>
+
+    <!-- SETUP GAME MODAL (CREATE / JOIN ROOM ONLINE) -->
+    <div id="setupModal" class="fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-indigo-500/40 rounded-3xl max-w-md w-full p-6 shadow-2xl relative text-center">
+            <div class="w-16 h-16 rounded-3xl bg-amber-500 text-slate-950 text-3xl flex items-center justify-center mx-auto mb-4 font-bold shadow-lg shadow-amber-500/30">
+                <i class="fa-solid fa-plane-arrival"></i>
+            </div>
+            <h2 class="title-font text-2xl font-bold text-white mb-1">WNA Simulator</h2>
+            <p class="text-xs text-slate-400 mb-5">Game Monopoly Online Expat Life - Cepat & Seru</p>
+
+            <!-- MODE TABS: BUAT ROOM / JOIN ROOM -->
+            <div class="grid grid-cols-2 gap-2 p-1 bg-slate-950 rounded-2xl border border-slate-800 mb-5">
+                <button onclick="switchTab('create')" id="tabCreate" class="py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 transition">Buat Room</button>
+                <button onclick="switchTab('join')" id="tabJoin" class="py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition">Gabung (Join)</button>
+            </div>
+
+            <!-- NAME INPUT -->
+            <div class="mb-4 text-left">
+                <label class="text-xs font-bold text-slate-300 block mb-1">Nama WNA / Pemain:</label>
+                <input type="text" id="myPlayerName" value="Expat Explorer" placeholder="Masukkan namamu..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs font-bold text-white focus:outline-none focus:border-amber-400">
+            </div>
+
+            <!-- CREATE ROOM SECTION -->
+            <div id="createSection" class="space-y-4 text-left">
+                <div>
+                    <label class="text-xs font-bold text-slate-300 block mb-1">Batas Putaran (10 - 50 Turns):</label>
+                    <select id="turnLimitSelect" class="w-full bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs font-bold text-white focus:outline-none focus:border-amber-400">
+                        <option value="10">10 Putaran (Kilat - 5 Menit)</option>
+                        <option value="20" selected>20 Putaran (Standar Seru - 10 Menit)</option>
+                        <option value="30">30 Putaran (Kompetitif)</option>
+                        <option value="40">40 Putaran (Panjang)</option>
+                        <option value="50">50 Putaran (Maraton WNA)</option>
+                    </select>
+                </div>
+                <button onclick="handleCreateRoom()" class="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs uppercase tracking-wider shadow-lg transition transform active:scale-95">
+                    BUAT ROOM ONLINE
+                </button>
+            </div>
+
+            <!-- JOIN ROOM SECTION -->
+            <div id="joinSection" class="hidden space-y-4 text-left">
+                <div>
+                    <label class="text-xs font-bold text-slate-300 block mb-1">Kode Room (4-6 Karakter):</label>
+                    <input type="text" id="inputRoomCode" placeholder="Contoh: WNA-8392" class="w-full uppercase tracking-widest text-center bg-slate-800 border border-slate-700 rounded-xl p-2.5 text-xs font-mono font-bold text-amber-400 focus:outline-none focus:border-amber-400">
+                </div>
+                <button onclick="handleJoinRoom()" class="w-full bg-gradient-to-r from-indigo-500 to-purple-600 hover:from-indigo-400 hover:to-purple-500 text-white font-extrabold py-3.5 rounded-xl text-xs uppercase tracking-wider shadow-lg transition transform active:scale-95">
+                    GABUNG KE GAME
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- WAITING ROOM LOBBY MODAL -->
+    <div id="waitingRoomModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-indigo-500/50 rounded-3xl max-w-lg w-full p-6 shadow-2xl relative text-center">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+                <div class="text-left">
+                    <span class="text-[10px] text-indigo-400 font-bold uppercase tracking-wider block">Lobby Multiplayer</span>
+                    <h3 class="title-font text-xl font-bold text-white">Ruang Tunggu WNA</h3>
+                </div>
+                <div class="bg-slate-950 border border-indigo-500/40 px-3 py-1.5 rounded-xl flex items-center space-x-2">
+                    <span class="text-xs font-mono font-black text-amber-400" id="waitingRoomCode">WNA-0000</span>
+                    <button onclick="copyRoomCode()" title="Salin Kode" class="text-slate-400 hover:text-white text-xs transition"><i class="fa-regular fa-copy"></i></button>
+                </div>
+            </div>
+
+            <p class="text-xs text-slate-400 mb-5">Bagikan kode room di atas kepada pemain lain untuk bergabung!</p>
+
+            <!-- 4 PLAYER SLOTS -->
+            <div id="waitingSlots" class="grid grid-cols-2 gap-3 mb-6">
+                <!-- Slot items will be dynamically generated -->
+            </div>
+
+            <div class="space-y-3">
+                <div id="hostNotice" class="text-xs text-amber-400/90 font-medium bg-amber-950/30 border border-amber-500/20 py-2 px-3 rounded-xl">
+                    <i class="fa-solid fa-circle-info mr-1.5"></i>Minimal 2 pemain diperlukan untuk memulai game.
+                </div>
+
+                <button id="startGameBtn" onclick="handleStartGameFromHost()" class="hidden w-full bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-extrabold py-3.5 rounded-xl text-xs uppercase tracking-wider shadow-lg transition transform active:scale-95">
+                    <i class="fa-solid fa-play mr-2"></i>MULAI GAME SEKARANG
+                </button>
+                <div id="waitingForHostText" class="hidden text-xs font-bold text-slate-400 animate-pulse py-2">
+                    <i class="fa-solid fa-hourglass-half mr-2 text-indigo-400"></i>Menunggu Host memulai permainan...
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- WORD SCRAMBLE / SENTENCE REORDER JAIL ESCAPE MODAL -->
+    <div id="jailModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-rose-500/40 rounded-3xl max-w-md w-full p-6 shadow-2xl text-center">
+            <div class="w-14 h-14 rounded-2xl bg-rose-600 text-white text-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <i class="fa-solid fa-passport"></i>
+            </div>
+            <h3 class="title-font text-xl font-bold text-white mb-1">Immigration Check Point!</h3>
+            <p id="jailChallengeDesc" class="text-xs text-slate-400 mb-4">Susun kata/kalimat berikut untuk perpanjang Visa!</p>
+            
+            <div id="jailScrambleTarget" class="text-sm font-black tracking-wider text-amber-400 bg-slate-950 p-3 rounded-xl border border-slate-800 mb-4 leading-relaxed">
+                WORDS / LETTERS
+            </div>
+            
+            <input type="text" id="jailInput" placeholder="Ketik jawaban di sini..." class="w-full bg-slate-800 border border-slate-700 rounded-xl p-3 text-center text-xs font-bold text-white mb-4 focus:outline-none focus:border-amber-400">
+            
+            <button onclick="submitJailChallenge()" class="w-full bg-rose-600 hover:bg-rose-500 text-white font-bold py-3 rounded-xl text-xs transition">VERIFIKASI VISA</button>
+        </div>
+    </div>
+
+    <!-- QUIZ MODAL -->
+    <div id="quizModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-amber-500/40 rounded-3xl max-w-lg w-full p-6 shadow-2xl text-left relative">
+            <div class="flex justify-between items-center mb-4 pb-3 border-b border-slate-800">
+                <span id="quizBadge" class="bg-amber-500/20 text-amber-300 border border-amber-500/40 px-3 py-1 rounded-full text-xs font-extrabold uppercase">Tingkat Soal</span>
+                <span id="quizTimer" class="text-rose-400 font-mono font-bold text-sm"><i class="fa-solid fa-clock mr-1"></i>10s</span>
+            </div>
+            <h3 id="quizQuestion" class="text-base md:text-lg font-bold text-white mb-6 leading-relaxed">Pertanyaan...</h3>
+            <div id="quizOptions" class="space-y-3 mb-6"></div>
+        </div>
+    </div>
+
+    <!-- PROPERTY PURCHASE / UPGRADE MODAL -->
+    <div id="propertyModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-indigo-500/40 rounded-3xl max-w-md w-full p-6 shadow-2xl text-center relative">
+            <div class="flex justify-end mb-2">
+                <span id="propTimerDisplay" class="text-amber-400 font-mono font-bold text-xs bg-slate-950 px-2.5 py-1 rounded-full border border-slate-800"><i class="fa-solid fa-clock mr-1"></i>Keputusan: 20s</span>
+            </div>
+            <div class="w-14 h-14 rounded-2xl bg-indigo-600 text-white text-2xl flex items-center justify-center mx-auto mb-3 shadow-lg">
+                <i class="fa-solid fa-building"></i>
+            </div>
+            <h3 id="propModalTitle" class="title-font text-xl font-bold text-white mb-1">Nama Properti WNA</h3>
+            <p id="propModalDesc" class="text-xs text-slate-400 mb-5">Deskripsi investasi tempat tinggal/usaha WNA</p>
+            <div class="bg-slate-950 p-4 rounded-2xl border border-slate-800 mb-6 text-left space-y-2 text-xs">
+                <div class="flex justify-between"><span class="text-slate-400">Biaya Investasi:</span><span id="propModalCost" class="font-bold text-amber-400">400 Pts</span></div>
+                <div class="flex justify-between"><span class="text-slate-400">Denda Sewa Lawan:</span><span id="propModalRent" class="font-bold text-emerald-400">100 Pts</span></div>
+            </div>
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="confirmPropertyAction(true)" class="bg-emerald-600 hover:bg-emerald-500 text-white font-bold py-3 rounded-xl text-xs transition">INVESTASI / UPGRADE</button>
+                <button onclick="confirmPropertyAction(false)" class="bg-slate-800 hover:bg-slate-700 text-slate-300 font-bold py-3 rounded-xl text-xs transition">LEWATKAN</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- CATALOG & RULEBOOK MODAL -->
+    <div id="catalogModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-indigo-500/40 rounded-3xl max-w-2xl w-full p-6 shadow-2xl text-left relative max-h-[85vh] overflow-y-auto custom-scrollbar">
+            <button onclick="closeCatalogModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white text-lg"><i class="fa-solid fa-xmark"></i></button>
+            <h3 class="title-font text-xl font-bold text-white mb-4 flex items-center"><i class="fa-solid fa-book-open text-indigo-400 mr-2"></i>Aturan WNA Simulator Online</h3>
+            
+            <div class="space-y-6 text-xs text-slate-300">
+                <div>
+                    <h4 class="font-bold text-amber-400 text-sm mb-2">1. Pilihan Putaran Ringkas (10-50 Turns)</h4>
+                    <p class="mb-2">Game didesain agar berlangsung cepat dan tidak membosankan. Host dapat mengatur batas putaran dari <strong>10, 20, 30, 40, hingga 50 Turns</strong> saat membuat room.</p>
+                </div>
+                <div>
+                    <h4 class="font-bold text-amber-400 text-sm mb-2">2. Sistem Ekonomi WNA Expat</h4>
+                    <ul class="list-disc pl-5 space-y-1">
+                        <li>Modal Awal: <strong>1,000 Pts</strong>. Lewat Imigrasi START: <strong>+300 Pts</strong>.</li>
+                        <li><strong>Soal Easy (Dadu 1-2):</strong> 100 Pts</li>
+                        <li><strong>Soal Medium (Dadu 3-4):</strong> 250 Pts</li>
+                        <li><strong>Soal Hard (Dadu 5-6):</strong> 500 Pts</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- GAME OVER / LEADERBOARD MODAL -->
+    <div id="gameOverModal" class="hidden fixed inset-0 modal-overlay z-50 flex items-center justify-center p-4">
+        <div class="bg-slate-900 border-2 border-amber-500/60 rounded-3xl max-w-lg w-full p-6 shadow-2xl text-center">
+            <div class="w-16 h-16 rounded-full bg-amber-500 text-slate-950 text-3xl flex items-center justify-center mx-auto mb-3 shadow-lg shadow-amber-500/40">
+                <i class="fa-solid fa-trophy"></i>
+            </div>
+            <h2 class="title-font text-2xl font-bold text-white mb-1">Permainan Selesai!</h2>
+            <p class="text-xs text-slate-400 mb-6">Juara Expat Indonesia Terbaik</p>
+            <div id="leaderboardList" class="space-y-3 mb-6"></div>
+            <button onclick="location.reload()" class="w-full bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold py-3 rounded-xl text-xs transition">MAIN AGAIN</button>
+        </div>
+    </div>
+
+    <!-- SCRIPT GAME LOGIC ONLINE MULTIPLAYER -->
+    <script>
+        // Sound effects
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        function playSound(type) {
+            try {
+                const osc = audioCtx.createOscillator();
+                const gain = audioCtx.createGain();
+                osc.connect(gain);
+                gain.connect(audioCtx.destination);
+                
+                if (type === 'dice') {
+                    osc.type = 'square';
+                    osc.frequency.setValueAtTime(300, audioCtx.currentTime);
+                    osc.frequency.exponentialRampToValueAtTime(150, audioCtx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.2, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.15);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.15);
+                } else if (type === 'correct') {
+                    osc.type = 'triangle';
+                    osc.frequency.setValueAtTime(523.25, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(659.25, audioCtx.currentTime + 0.1);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                } else if (type === 'wrong') {
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(200, audioCtx.currentTime);
+                    osc.frequency.setValueAtTime(140, audioCtx.currentTime + 0.15);
+                    gain.gain.setValueAtTime(0.3, audioCtx.currentTime);
+                    gain.gain.linearRampToValueAtTime(0.01, audioCtx.currentTime + 0.3);
+                    osc.start();
+                    osc.stop(audioCtx.currentTime + 0.3);
+                }
+            } catch(e) {}
+        }
+
+        // 40 TILES WNA SIMULATOR EXPAT LIFE
+        const WNA_TILES = [
+            { id: 0, name: "START (Visa Check)", type: "start", icon: "fa-passport", r: 11, c: 11 },
+            { id: 1, name: "Kos-kosan Bali", type: "prop1", cost: 350, rent: 80, icon: "fa-house", r: 11, c: 10 },
+            { id: 2, name: "Special (?)", type: "special", icon: "fa-question", r: 11, c: 9 },
+            { id: 3, name: "Warung Kopi", type: "prop1", cost: 380, rent: 90, icon: "fa-mug-hot", r: 11, c: 8 },
+            { id: 4, name: "Bahasa Class", type: "prop1", cost: 400, rent: 100, icon: "fa-book-open", r: 11, c: 7 },
+            { id: 5, name: "Speed Run", type: "challenge", icon: "fa-bolt", r: 11, c: 6 },
+            { id: 6, name: "Motor Rental", type: "prop1", cost: 420, rent: 110, icon: "fa-motorcycle", r: 11, c: 5 },
+            { id: 7, name: "Sate Stand", type: "prop1", cost: 450, rent: 120, icon: "fa-utensils", r: 11, c: 4 },
+            { id: 8, name: "Special (?)", type: "special", icon: "fa-question", r: 11, c: 3 },
+            { id: 9, name: "Surf School", type: "prop1", cost: 480, rent: 130, icon: "fa-water", r: 11, c: 2 },
+            { id: 10, name: "Immigration Jail", type: "jail", icon: "fa-handcuffs", r: 11, c: 1 },
+            { id: 11, name: "Ubud Yoga Studio", type: "prop2", cost: 700, rent: 200, icon: "fa-spa", r: 10, c: 1 },
+            { id: 12, name: "Canggu Coworking", type: "prop2", cost: 750, rent: 220, icon: "fa-laptop-code", r: 9, c: 1 },
+            { id: 13, name: "Special (?)", type: "special", icon: "fa-question", r: 8, c: 1 },
+            { id: 14, name: "Airport Transit", type: "special", icon: "fa-plane-departure", r: 7, c: 1 },
+            { id: 15, name: "Gili Beach Bar", type: "prop2", cost: 800, rent: 240, icon: "fa-cocktail", r: 6, c: 1 },
+            { id: 16, name: "Sanur Apartment", type: "prop2", cost: 850, rent: 250, icon: "fa-building", r: 5, c: 1 },
+            { id: 17, name: "Spelling Challenge", type: "challenge", icon: "fa-bee", r: 4, c: 1 },
+            { id: 18, name: "Special (?)", type: "special", icon: "fa-question", r: 3, c: 1 },
+            { id: 19, name: "Jogja Cultural Cafe", type: "prop2", cost: 900, rent: 270, icon: "fa-landmark", r: 2, c: 1 },
+            { id: 20, name: "Free Beach Parking", type: "special", icon: "fa-square-parking", r: 1, c: 1 },
+            { id: 21, name: "Kemang Bistro", type: "prop2", cost: 950, rent: 290, icon: "fa-champagne-glasses", r: 1, c: 2 },
+            { id: 22, name: "Special (?)", type: "special", icon: "fa-question", r: 1, c: 3 },
+            { id: 23, name: "Bandung Factory Outlet", type: "prop2", cost: 1000, rent: 300, icon: "fa-bag-shopping", r: 1, c: 4 },
+            { id: 24, name: "Labuan Bajo Diving", type: "prop2", cost: 1100, rent: 340, icon: "fa-fish", r: 1, c: 5 },
+            { id: 25, name: "Boss Challenge", type: "challenge", icon: "fa-dragon", r: 1, c: 6 },
+            { id: 26, name: "Raja Ampat Villa", type: "prop2", cost: 1150, rent: 350, icon: "fa-umbrella-beach", r: 1, c: 7 },
+            { id: 27, name: "Menteng Mansion", type: "prop2", cost: 1250, rent: 380, icon: "fa-city", r: 1, c: 8 },
+            { id: 28, name: "Special (?)", type: "special", icon: "fa-question", r: 1, c: 9 },
+            { id: 29, name: "SCBD Coworking Hub", type: "prop2", cost: 1350, rent: 420, icon: "fa-building-columns", r: 1, c: 10 },
+            { id: 30, name: "Visa Expired Jail", type: "jail", icon: "fa-lock", r: 1, c: 11 },
+            { id: 31, name: "Gojek Bus Stop", type: "special", icon: "fa-bus", r: 2, c: 11 },
+            { id: 32, name: "Pondok Indah Villa", type: "prop3", cost: 1600, rent: 500, icon: "fa-hotel", r: 3, c: 11 },
+            { id: 33, name: "Special (?)", type: "special", icon: "fa-question", r: 4, c: 11 },
+            { id: 34, name: "Seminyak Club", type: "prop3", cost: 1750, rent: 550, icon: "fa-music", r: 5, c: 11 },
+            { id: 35, name: "Nusa Dua Resort", type: "prop3", cost: 1900, rent: 600, icon: "fa-water", r: 6, c: 11 },
+            { id: 36, name: "Uluwatu Cliff Resort", type: "prop3", cost: 2100, rent: 700, icon: "fa-mountain-sun", r: 7, c: 11 },
+            { id: 37, name: "Special (?)", type: "special", icon: "fa-question", r: 8, c: 11 },
+            { id: 38, name: "Sudirman Penthouse", type: "prop3", cost: 2300, rent: 780, icon: "fa-gem", r: 9, c: 11 },
+            { id: 39, name: "IKN Expat Estate", type: "prop3", cost: 2500, rent: 850, icon: "fa-crown", r: 10, c: 11 }
+        ];
+
+        const QUESTION_BANK = {
+            Easy: [
+                { q: "[100 Pts] What is the English translation of 'Terima Kasih'?", options: ["Hello", "Thank you", "Goodbye", "Sorry"], ans: 1 },
+                { q: "[100 Pts] Complete: 'WNA stands for Warga Negara ___.'", options: ["Asli", "Asing", "Aman", "Anggota"], ans: 1 },
+                { q: "[100 Pts] What is the past tense of 'SPEAK'?", options: ["Speaked", "Spoke", "Speaking", "Speaks"], ans: 1 }
+            ],
+            Medium: [
+                { q: "[250 Pts] Passive Voice: 'The expat signed the villa lease contract.'", options: ["The contract is signed.", "The villa lease contract was signed by the expat.", "Expat was signed.", "Contract had signed."], ans: 1 },
+                { q: "[250 Pts] What visa is commonly used by expats working in Indonesia?", options: ["Tourist Visa", "KITAS / ITAS", "Transit Visa", "Student Pass"], ans: 1 }
+            ],
+            Hard: [
+                { q: "[500 Pts] Conditional Type 2: 'If the expat ___ fluent Bahasa, he would make more local friends.'", options: ["is", "spoke", "will speak", "would speak"], ans: 1 },
+                { q: "[500 Pts] What does the idiom 'BREAK THE ICE' mean?", options: ["Smash ice cubes", "Initiate conversation in a social setting", "Freeze water", "Cancel plans"], ans: 1 }
+            ]
+        };
+
+        const SENTENCE_CHALLENGES = [
+            { scrambled: "indonesia / living / I / in / love", correct: "I LOVE LIVING IN INDONESIA" },
+            { scrambled: "visa / renewed / my / yesterday / I", correct: "I RENEWED MY VISA YESTERDAY" },
+            { scrambled: "bali / traveling / expats / to / enjoy", correct: "EXPATS ENJOY TRAVELING TO BALI" }
+        ];
+
+        const WORD_ANAGRAMS = [
+            { scrambled: "E - X - P - A - T", correct: "EXPAT" },
+            { scrambled: "P - A - S - S - P - O - R - T", correct: "PASSPORT" },
+            { scrambled: "I - M - M - I - G - R - A - T - I - O - N", correct: "IMMIGRATION" }
+        ];
+
+        const PLAYER_CLASSES = ["p-red", "p-blue", "p-green", "p-yellow"];
+        const PLAYER_COLORS = ["#ef4444", "#3b82f6", "#10b981", "#f59e0b"];
+
+        let roomCode = "";
+        let isHost = false;
+        let localPlayerId = 0;
+        let roomRef = null;
+        let unsubscribeRoom = null;
+
+        let players = [];
+        let currentPlayerIdx = 0;
+        let currentTurn = 1;
+        let maxTurns = 20;
+        let tileState = {};
+        let isRolling = false;
+        let pendingActionTile = null;
+        let gameStarted = false;
+
+        let diceTimer = null;
+        let diceTimeLeft = 10;
+        let quizTimer = null;
+
+        function switchTab(mode) {
+            if (mode === 'create') {
+                document.getElementById('tabCreate').className = "py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 transition";
+                document.getElementById('tabJoin').className = "py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition";
+                document.getElementById('createSection').classList.remove('hidden');
+                document.getElementById('joinSection').classList.add('hidden');
+            } else {
+                document.getElementById('tabJoin').className = "py-2 rounded-xl text-xs font-bold text-white bg-indigo-600 transition";
+                document.getElementById('tabCreate').className = "py-2 rounded-xl text-xs font-bold text-slate-400 hover:text-white transition";
+                document.getElementById('joinSection').classList.remove('hidden');
+                document.getElementById('createSection').classList.add('hidden');
+            }
+        }
+
+        async function handleCreateRoom() {
+            const name = document.getElementById("myPlayerName").value.trim() || "Expat Host";
+            maxTurns = parseInt(document.getElementById("turnLimitSelect").value);
+            roomCode = "WNA-" + Math.floor(1000 + Math.random() * 9000);
+            isHost = true;
+            localPlayerId = 0;
+            gameStarted = false;
+
+            const initialData = {
+                roomCode: roomCode,
+                maxTurns: maxTurns,
+                currentTurn: 1,
+                currentPlayerIdx: 0,
+                gameStarted: false,
+                tileState: {},
+                players: [{
+                    id: 0,
+                    name: name,
+                    points: 1000,
+                    pos: 0,
+                    inJail: false,
+                    color: PLAYER_COLORS[0],
+                    class: PLAYER_CLASSES[0]
+                }]
+            };
+
+            try {
+                const db = window.fbDb;
+                const appId = window.appId;
+                const { doc, setDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'wna_rooms', roomCode);
+                await setDoc(roomDoc, initialData);
+
+                setupRoomListener();
+                document.getElementById("setupModal").classList.add("hidden");
+                updateCenterRoomUI();
+                showNotification(`ROOM BERHASIL DIBUAT: ${roomCode}`);
+            } catch(e) {
+                players = initialData.players;
+                document.getElementById("setupModal").classList.add("hidden");
+                updateCenterRoomUI();
+                renderBoard();
+                updateHUD();
+            }
+        }
+
+        async function handleJoinRoom() {
+            const inputCode = document.getElementById("inputRoomCode").value.trim().toUpperCase();
+            const name = document.getElementById("myPlayerName").value.trim() || "Expat Guest";
+
+            if (!inputCode) return;
+            roomCode = inputCode;
+            isHost = false;
+
+            try {
+                const db = window.fbDb;
+                const appId = window.appId;
+                const { doc, getDoc, updateDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'wna_rooms', roomCode);
+                const snap = await getDoc(roomDoc);
+
+                if (snap.exists()) {
+                    const data = snap.data();
+                    if (data.gameStarted) {
+                        alert("Permainan di room ini sudah berlangsung!");
+                        return;
+                    }
+                    if (data.players.length >= 4) {
+                        alert("Room sudah penuh (Maksimal 4 Pemain)!");
+                        return;
+                    }
+                    localPlayerId = data.players.length;
+                    const newPlayer = {
+                        id: localPlayerId,
+                        name: name,
+                        points: 1000,
+                        pos: 0,
+                        inJail: false,
+                        color: PLAYER_COLORS[localPlayerId],
+                        class: PLAYER_CLASSES[localPlayerId]
+                    };
+
+                    data.players.push(newPlayer);
+                    await updateDoc(roomDoc, { players: data.players });
+
+                    setupRoomListener();
+                    document.getElementById("setupModal").classList.add("hidden");
+                    updateCenterRoomUI();
+                    showNotification(`BERHASIL GABUNG KE ROOM ${roomCode}`);
+                } else {
+                    alert("Kode Room tidak ditemukan!");
+                }
+            } catch(e) {
+                alert("Gagal terhubung ke server.");
+            }
+        }
+
+        function updateCenterRoomUI() {
+            document.getElementById("centerRoomCodeDisplay").innerText = roomCode || "----";
+            document.getElementById("roomCodeHeader").classList.remove("hidden");
+            document.getElementById("displayRoomCode").innerText = roomCode || "----";
+
+            const startBtn = document.getElementById("startGameBtn");
+            const waitText = document.getElementById("waitingForHostText");
+            const statusText = document.getElementById("onlineStatusText");
+
+            if (!gameStarted) {
+                if (isHost) {
+                    waitText.classList.add("hidden");
+                    if (players.length >= 2) {
+                        startBtn.classList.remove("hidden");
+                        statusText.innerText = "Status: Siap! Klik 'Mulai Game'";
+                    } else {
+                        startBtn.classList.add("hidden");
+                        statusText.innerText = `Menunggu Pemain Lain (${players.length}/4)...`;
+                    }
+                } else {
+                    startBtn.classList.add("hidden");
+                    waitText.classList.remove("hidden");
+                    statusText.innerText = `Menunggu Host Memulai (${players.length}/4)...`;
+                }
+            } else {
+                startBtn.classList.add("hidden");
+                waitText.classList.add("hidden");
+                statusText.innerText = "Status: Game Berlangsung Live";
+            }
+        }
+
+        async function handleStartGameFromHost() {
+            if (!isHost || players.length < 2) return;
+            try {
+                const db = window.fbDb;
+                const appId = window.appId;
+                const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'wna_rooms', roomCode);
+                await updateDoc(roomDoc, { gameStarted: true });
+            } catch(e) {}
+        }
+
+        async function setupRoomListener() {
+            const db = window.fbDb;
+            const appId = window.appId;
+            const { doc, onSnapshot } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+            const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'wna_rooms', roomCode);
+
+            unsubscribeRoom = onSnapshot(roomDoc, (snapshot) => {
+                if (snapshot.exists()) {
+                    const data = snapshot.data();
+                    players = data.players || [];
+                    currentPlayerIdx = data.currentPlayerIdx || 0;
+                    currentTurn = data.currentTurn || 1;
+                    maxTurns = data.maxTurns || 20;
+                    tileState = data.tileState || {};
+                    const wasStarted = gameStarted;
+                    gameStarted = !!data.gameStarted;
+
+                    updateCenterRoomUI();
+                    renderBoard();
+                    updateHUD();
+
+                    if (gameStarted && !wasStarted) {
+                        startDiceTimer();
+                        showNotification("GAME RESMI DIMULAI!");
+                    } else if (gameStarted) {
+                        document.getElementById("turnLimitDisplay").innerText = `${currentTurn} / ${maxTurns}`;
+                        document.getElementById("playerCountBadge").innerText = `${players.length}/4 Ready`;
+                    }
+                }
+            }, (err) => console.error(err));
+        }
+
+        function renderWaitingRoomSlots() {
+            const container = document.getElementById("waitingSlots");
+            if (!container) return;
+            container.innerHTML = "";
+
+            for (let i = 0; i < 4; i++) {
+                const player = players[i];
+                if (player) {
+                    container.innerHTML += `
+                        <div class="player-slot occupied p-3 rounded-2xl flex items-center space-x-3 text-left">
+                            <div class="w-8 h-8 rounded-full flex items-center justify-center font-extrabold text-xs text-white ${player.class} shadow-md">
+                                ${player.id + 1}
+                            </div>
+                            <div class="flex-grow overflow-hidden">
+                                <h4 class="font-bold text-xs text-white truncate">${player.name}</h4>
+                                <span class="text-[9px] text-emerald-400 font-bold uppercase block">${i === 0 ? 'HOST' : 'READY'}</span>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    container.innerHTML += `
+                        <div class="player-slot p-3 rounded-2xl flex items-center space-x-3 text-left opacity-60">
+                            <div class="w-8 h-8 rounded-full border border-slate-600 border-dashed flex items-center justify-center font-bold text-xs text-slate-500">
+                                ${i + 1}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xs text-slate-500">Kosong</h4>
+                                <span class="text-[9px] text-slate-600 font-bold uppercase block">Menunggu...</span>
+                            </div>
+                        </div>
+                    `;
+                }
+            }
+
+            const startBtn = document.getElementById("startGameBtn");
+            const waitText = document.getElementById("waitingForHostText");
+            const hostNotice = document.getElementById("hostNotice");
+
+            if (isHost) {
+                waitText.classList.add("hidden");
+                if (players.length >= 2) {
+                    startBtn.classList.remove("hidden");
+                    hostNotice.classList.add("hidden");
+                } else {
+                    startBtn.classList.add("hidden");
+                    hostNotice.classList.remove("hidden");
+                }
+            } else {
+                startBtn.classList.add("hidden");
+                hostNotice.classList.add("hidden");
+                waitText.classList.remove("hidden");
+            }
+        }
+
+        async function syncRoomState() {
+            if (!roomCode) return;
+            try {
+                const db = window.fbDb;
+                const appId = window.appId;
+                const { doc, updateDoc } = await import("https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js");
+                const roomDoc = doc(db, 'artifacts', appId, 'public', 'data', 'wna_rooms', roomCode);
+                await updateDoc(roomDoc, {
+                    players: players,
+                    currentPlayerIdx: currentPlayerIdx,
+                    currentTurn: currentTurn,
+                    tileState: tileState
+                });
+            } catch(e) {}
+        }
+
+        function renderBoard() {
+            const boardGrid = document.getElementById("boardGrid");
+            if (!boardGrid) return;
+
+            const centerElem = boardGrid.querySelector(".board-center");
+            boardGrid.innerHTML = "";
+            if (centerElem) boardGrid.appendChild(centerElem);
+
+            WNA_TILES.forEach(tile => {
+                const tileElem = document.createElement("div");
+                let categoryClass = "tile-prop-l1";
+                if (tile.type === "prop2") categoryClass = "tile-prop-l2";
+                if (tile.type === "prop3") categoryClass = "tile-prop-l3";
+                if (tile.type === "special") categoryClass = "tile-special";
+                if (tile.type === "challenge") categoryClass = "tile-challenge";
+                if (tile.type === "jail") categoryClass = "tile-jail";
+                if (tile.type === "start") categoryClass = "tile-start";
+
+                tileElem.className = `tile ${categoryClass}`;
+                tileElem.style.gridRow = tile.r;
+                tileElem.style.gridColumn = tile.c;
+                tileElem.onclick = () => renderTileDetails(tile);
+
+                let ownerBadgeHTML = "";
+                if (tileState[tile.id]) {
+                    const st = tileState[tile.id];
+                    const owner = players[st.owner];
+                    if (owner) {
+                        const levelLabel = st.level === 1 ? "H" : st.level === 2 ? "B" : "Htl";
+                        ownerBadgeHTML = `<div class="owner-badge" style="background:${owner.color}; color:white;" title="${owner.name} (${levelLabel})">${levelLabel}</div>`;
+                    }
+                }
+
+                let tokensHTML = "";
+                players.forEach(p => {
+                    if (p.pos === tile.id) {
+                        tokensHTML += `<div class="player-token ${p.class}">${p.id + 1}</div>`;
+                    }
+                });
+
+                tileElem.innerHTML = `
+                    ${ownerBadgeHTML}
+                    <div class="tile-header">${tile.name}</div>
+                    <div class="tile-body">
+                        <i class="fa-solid ${tile.icon} tile-icon"></i>
+                    </div>
+                    ${tile.cost ? `<div class="tile-price">${tile.cost}Pts</div>` : ''}
+                    <div class="token-container">${tokensHTML}</div>
+                `;
+
+                boardGrid.appendChild(tileElem);
+            });
+        }
+
+        function updateHUD() {
+            const playersList = document.getElementById("playersList");
+            if (!playersList) return;
+
+            playersList.innerHTML = "";
+            players.forEach((p, idx) => {
+                const isCurrent = idx === currentPlayerIdx;
+                const activeBorder = isCurrent ? `border-2 border-amber-400 bg-slate-900/95 shadow-[0_0_15px_rgba(245,158,11,0.2)]` : `border border-slate-800 bg-slate-950/70`;
+
+                playersList.innerHTML += `
+                    <div class="p-3 rounded-xl ${activeBorder} flex items-center justify-between transition">
+                        <div class="flex items-center space-x-2.5">
+                            <div class="w-7 h-7 rounded-full flex items-center justify-center font-extrabold text-xs text-white ${p.class} shadow-md">
+                                ${p.id + 1}
+                            </div>
+                            <div>
+                                <h4 class="font-bold text-xs text-white leading-none">${p.name} ${idx === localPlayerId ? '<span class="text-[9px] text-emerald-400 font-bold">(You)</span>' : ''}</h4>
+                                <span class="text-[10px] text-slate-400 font-mono">Posisi: Tile ${p.pos}</span>
+                            </div>
+                        </div>
+                        <div class="text-right">
+                            <span class="font-black text-amber-400 text-xs block">${p.points} Pts</span>
+                        </div>
+                    </div>
+                `;
+            });
+
+            const currPlayer = players[currentPlayerIdx];
+            if (currPlayer) {
+                const turnNameElem = document.getElementById("turnPlayerName");
+                const turnDotElem = document.getElementById("turnDot");
+                if (turnNameElem) turnNameElem.innerText = currPlayer.name;
+                if (turnDotElem) {
+                    turnDotElem.style.backgroundColor = currPlayer.color;
+                    turnDotElem.style.boxShadow = `0 0 10px ${currPlayer.color}`;
+                }
+            }
+        }
+
+        function renderTileDetails(tile) {
+            const box = document.getElementById("tileInfoBox");
+            if (!box) return;
+
+            const st = tileState[tile.id];
+            let ownerText = "Belum Ada Pemilik";
+            if (st && players[st.owner]) {
+                const owner = players[st.owner];
+                ownerText = `Milik: <strong style="color:${owner.color}">${owner.name}</strong> (Lvl ${st.level})`;
+            }
+
+            box.innerHTML = `
+                <div class="w-full space-y-1">
+                    <div class="flex justify-between items-center">
+                        <strong class="text-white text-xs">${tile.name}</strong>
+                        <span class="text-[10px] uppercase font-bold text-indigo-400">${tile.type}</span>
+                    </div>
+                    <div class="flex justify-between text-[11px]">
+                        <span>${tile.cost ? `Harga: ${tile.cost} Pts` : 'Aksi WNA'}</span>
+                        <span>${tile.rent ? `Denda: ${tile.rent} Pts` : ''}</span>
+                    </div>
+                    <div class="text-[10px] text-slate-400">${ownerText}</div>
+                </div>
+            `;
+        }
+
+        function startDiceTimer() {
+            if (diceTimer) clearInterval(diceTimer);
+            diceTimeLeft = 10;
+            const timerDisplay = document.getElementById("diceTimerDisplay");
+            if (timerDisplay) timerDisplay.innerText = `${diceTimeLeft}s`;
+
+            diceTimer = setInterval(() => {
+                diceTimeLeft--;
+                if (timerDisplay) timerDisplay.innerText = `${diceTimeLeft}s`;
+                if (diceTimeLeft <= 0) {
+                    clearInterval(diceTimer);
+                    if (currentPlayerIdx === localPlayerId) {
+                        handleRollDice(true);
+                    }
+                }
+            }, 1000);
+        }
+
+        function handleRollDice(isAutoRoll = false) {
+            if (isRolling || currentPlayerIdx !== localPlayerId) return;
+            if (diceTimer) clearInterval(diceTimer);
+            const player = players[currentPlayerIdx];
+
+            if (player.inJail) {
+                openJailModal();
+                return;
+            }
+
+            isRolling = true;
+            playSound('dice');
+
+            const dice = document.getElementById("diceCube");
+            const diceVal = Math.floor(Math.random() * 6) + 1;
+
+            const rotations = {
+                1: "rotateX(0deg) rotateY(0deg)",
+                2: "rotateY(-180deg)",
+                3: "rotateY(-90deg)",
+                4: "rotateY(90deg)",
+                5: "rotateX(-90deg)",
+                6: "rotateX(90deg)"
+            };
+
+            dice.style.transform = `rotateX(${720 + Math.random()*360}deg) rotateY(${720 + Math.random()*360}deg)`;
+            
+            setTimeout(() => {
+                dice.style.transform = rotations[diceVal];
+                setTimeout(() => {
+                    movePlayer(player, diceVal);
+                }, 600);
+            }, 500);
+        }
+
+        function movePlayer(player, diceVal) {
+            let steps = 0;
+            const moveInterval = setInterval(() => {
+                player.pos = (player.pos + 1) % WNA_TILES.length;
+                if (player.pos === 0) {
+                    player.points += 300;
+                    showNotification(`${player.name} MELEWATI VISA CHECK! +300 Pts`);
+                }
+                renderBoard();
+                steps++;
+
+                if (steps >= diceVal) {
+                    clearInterval(moveInterval);
+                    evaluateTileLanding(player, diceVal);
+                }
+            }, 250);
+        }
+
+        function evaluateTileLanding(player, diceVal) {
+            const tile = WNA_TILES[player.pos];
+            const diff = diceVal <= 2 ? 'Easy' : diceVal <= 4 ? 'Medium' : 'Hard';
+            pendingActionTile = { tile, player, diff };
+
+            if (tile.type.startsWith("prop") || tile.type === "challenge" || tile.type === "special") {
+                openQuizModal(diff);
+            } else if (tile.type === "jail") {
+                player.inJail = true;
+                showNotification(`${player.name} KENA IMMIGRATION CHECK!`);
+                finishTurn();
+            } else {
+                finishTurn();
+            }
+        }
+
+        function handleTileLogicAfterQuiz(isQuizPassed) {
+            const { tile, player } = pendingActionTile;
+            const state = tileState[tile.id];
+
+            if (!state) {
+                if (isQuizPassed && player.points >= tile.cost) {
+                    openPropertyModal(tile, "buy");
+                } else {
+                    finishTurn();
+                }
+            } else if (state.owner !== player.id) {
+                const owner = players[state.owner];
+                const rentCost = tile.rent * state.level;
+                if (!isQuizPassed && owner) {
+                    player.points -= rentCost;
+                    owner.points += rentCost;
+                    showNotification(`BAYAR SEWA ${rentCost} Pts!`);
+                }
+                finishTurn();
+            } else {
+                if (isQuizPassed && state.level < 3 && player.points >= tile.cost) {
+                    openPropertyModal(tile, "upgrade");
+                } else {
+                    finishTurn();
+                }
+            }
+        }
+
+        function openQuizModal(diff) {
+            const modal = document.getElementById("quizModal");
+            const badge = document.getElementById("quizBadge");
+            const qText = document.getElementById("quizQuestion");
+            const optionsBox = document.getElementById("quizOptions");
+
+            const qList = QUESTION_BANK[diff];
+            const q = qList[Math.floor(Math.random() * qList.length)];
+
+            badge.innerText = `Kuis Expat ${diff.toUpperCase()}`;
+            qText.innerText = q.q;
+            optionsBox.innerHTML = "";
+
+            q.options.forEach((opt, idx) => {
+                optionsBox.innerHTML += `
+                    <button onclick="submitQuizAnswer(${idx === q.ans})" class="w-full text-left bg-slate-800 hover:bg-slate-700 border border-slate-700 p-3 rounded-xl text-xs font-bold text-white transition flex items-center justify-between">
+                        <span>${opt}</span>
+                        <i class="fa-regular fa-circle text-slate-500"></i>
+                    </button>
+                `;
+            });
+
+            modal.classList.remove("hidden");
+        }
+
+        function submitQuizAnswer(isCorrect) {
+            document.getElementById("quizModal").classList.add("hidden");
+            const { player, diff } = pendingActionTile;
+
+            if (isCorrect) {
+                playSound('correct');
+                const pts = diff === 'Easy' ? 100 : diff === 'Medium' ? 250 : 500;
+                player.points += pts;
+                showNotification(`BENAR! +${pts} Pts`);
+                handleTileLogicAfterQuiz(true);
+            } else {
+                playSound('wrong');
+                showNotification(`SALAH!`);
+                handleTileLogicAfterQuiz(false);
+            }
+        }
+
+        function openPropertyModal(tile, actionType) {
+            const modal = document.getElementById("propertyModal");
+            document.getElementById("propModalTitle").innerText = tile.name;
+            document.getElementById("propModalDesc").innerText = actionType === "buy" ? "Investasi properti expat di tempat ini?" : "Upgrade level properti wna ini?";
+            document.getElementById("propModalCost").innerText = `${tile.cost} Pts`;
+            document.getElementById("propModalRent").innerText = `${tile.rent} Pts`;
+            modal.classList.remove("hidden");
+        }
+
+        function confirmPropertyAction(buy) {
+            document.getElementById("propertyModal").classList.add("hidden");
+            const { tile, player } = pendingActionTile;
+            if (buy && player.points >= tile.cost) {
+                player.points -= tile.cost;
+                if (!tileState[tile.id]) {
+                    tileState[tile.id] = { owner: player.id, level: 1 };
+                } else {
+                    tileState[tile.id].level += 1;
+                }
+                showNotification(`INVESTASI BERHASIL!`);
+                renderBoard();
+            }
+            finishTurn();
+        }
+
+        function openJailModal() {
+            const item = SENTENCE_CHALLENGES[Math.floor(Math.random() * SENTENCE_CHALLENGES.length)];
+            document.getElementById("jailScrambleTarget").innerText = item.scrambled;
+            jailTargetAnswer = item.correct;
+            document.getElementById("jailModal").classList.remove("hidden");
+        }
+
+        let jailTargetAnswer = "";
+        function submitJailChallenge() {
+            const input = document.getElementById("jailInput").value.trim().toUpperCase();
+            const target = jailTargetAnswer.trim().toUpperCase();
+            const player = players[currentPlayerIdx];
+
+            document.getElementById("jailModal").classList.add("hidden");
+            if (input === target) {
+                playSound('correct');
+                player.inJail = false;
+                showNotification("VISA DISETUJUI! BEBAS PENJARA");
+            } else {
+                playSound('wrong');
+                showNotification("VERIFIKASI GAGAL!");
+            }
+            finishTurn();
+        }
+
+        function finishTurn() {
+            currentPlayerIdx = (currentPlayerIdx + 1) % players.length;
+            if (currentPlayerIdx === 0) {
+                currentTurn++;
+                if (currentTurn > maxTurns) {
+                    endGame();
+                    return;
+                }
+            }
+            isRolling = false;
+            syncRoomState();
+            startDiceTimer();
+        }
+
+        function endGame() {
+            const sorted = [...players].sort((a, b) => b.points - a.points);
+            const container = document.getElementById("leaderboardList");
+            container.innerHTML = "";
+            sorted.forEach((p, idx) => {
+                container.innerHTML += `
+                    <div class="bg-slate-950 p-3.5 rounded-2xl border border-slate-800 flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <span class="font-black text-amber-400 text-base">#${idx + 1}</span>
+                            <span class="font-bold text-white text-sm">${p.name}</span>
+                        </div>
+                        <span class="font-black text-amber-400 text-sm">${p.points} Pts</span>
+                    </div>
+                `;
+            });
+            document.getElementById("gameOverModal").classList.remove("hidden");
+        }
+
+        function showNotification(msg) {
+            const el = document.getElementById("topNotification");
+            document.getElementById("notifText").innerText = msg;
+            el.classList.remove("hidden");
+            setTimeout(() => el.classList.add("hidden"), 2500);
+        }
+
+        function copyRoomCode() {
+            if (!roomCode || roomCode === "----") return;
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(roomCode);
+            } else {
+                const tempInput = document.createElement("input");
+                tempInput.value = roomCode;
+                document.body.appendChild(tempInput);
+                tempInput.select();
+                document.execCommand("copy");
+                document.body.removeChild(tempInput);
+            }
+            showNotification(`KODE ROOM ${roomCode} BERHASIL DISALIN!`);
+        }
+
+        function openCatalogModal() { document.getElementById("catalogModal").classList.remove("hidden"); }
+        function closeCatalogModal() { document.getElementById("catalogModal").classList.add("hidden"); }
+
+        window.onload = () => {
+            renderBoard();
+        };
+    </script>
+</body>
+</html>
