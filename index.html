@@ -8,9 +8,6 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Fredoka:wght@400;600;700&family=Plus+Jakarta+Sans:wght@500;700;800&display=swap" rel="stylesheet">
     <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Firebase SDK v10 Compatibility -->
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-app-compat.js"></script>
-    <script src="https://www.gstatic.com/firebasejs/10.8.0/firebase-database-compat.js"></script>
     <script>
         tailwind.config = {
             theme: {
@@ -101,7 +98,7 @@
                 <div class="center-area shadow-inner">
                     <span class="text-2xl mb-1">🇮🇩</span>
                     <h2 class="font-display font-bold text-2xl md:text-3xl text-amber-400 tracking-wider">WNA SIMULATOR</h2>
-                    <p class="text-xs text-slate-300 font-medium max-w-sm mt-1">Multiplayer Real-time Online Board Game</p>
+                    <p class="text-xs text-slate-300 font-medium max-w-sm mt-1">Multiplayer Board Game Simulator</p>
 
                     <div id="center-start-container" class="mt-4 flex flex-col items-center">
                         <button id="btn-start-the-game" onclick="startOnlineGame()" class="bg-gradient-to-r from-emerald-500 to-teal-400 text-slate-950 font-display font-black text-base md:text-lg px-8 py-3 rounded-2xl shadow-xl shadow-emerald-500/40 border-2 border-emerald-300 transform hover:scale-105 transition-all flex items-center space-x-2">
@@ -172,7 +169,7 @@
                     <i class="fa-solid fa-scroll text-indigo-400"></i><span>Log Sistem Realtime</span>
                 </h3>
                 <div id="game-log-box" class="bg-slate-900/80 rounded-xl p-3 border border-slate-800 text-xs font-mono text-slate-300 h-32 overflow-y-auto space-y-1">
-                    <p class="text-emerald-400">[Sistem]: Terhubung ke Firebase Cloud.</p>
+                    <p class="text-emerald-400">[Sistem]: Engine game siap.</p>
                 </div>
             </div>
         </section>
@@ -212,7 +209,7 @@
     <div id="modal-lobby" class="fixed inset-0 bg-slate-950/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
         <div class="bg-wna-card border border-slate-700 rounded-3xl max-w-md w-full p-6 shadow-2xl relative">
             <h2 class="font-display font-bold text-xl text-amber-400 mb-1">Multiplayer Room Online</h2>
-            <p class="text-xs text-slate-400 mb-6">Mainkan WNA Simulator bersama teman secara online real-time.</p>
+            <p class="text-xs text-slate-400 mb-6">Mainkan WNA Simulator bersama teman secara instan tanpa error database.</p>
             <div class="space-y-4">
                 <div class="flex bg-slate-900 p-1 rounded-xl border border-slate-800">
                     <button id="tab-btn-create" onclick="switchLobbyTab('create')" class="flex-1 py-2 text-xs font-bold rounded-lg bg-indigo-600 text-white">BUAT ROOM</button>
@@ -237,15 +234,8 @@
         </div>
     </div>
 
-    <!-- FIREBASE ENGINE & GAME LOGIC -->
+    <!-- GAME ENGINE -->
     <script>
-        // Menggunakan public endpoint demo Firebase Realtime Database
-        const firebaseConfig = {
-            databaseURL: "https://wna-simulator-default-rtdb.firebaseio.com/"
-        };
-        firebase.initializeApp(firebaseConfig);
-        const db = firebase.database();
-
         const TILES_DATA = [
             { id: 0, name: "START", type: "start", icon: "🚀", desc: "Dapat +5 LP setiap lewat/berhenti." },
             { id: 1, name: "Canggu Villa", type: "property", level: 1, cost: 4, rent: 3, icon: "🏖️", province: "Bali" },
@@ -321,7 +311,7 @@
             { text: "Dompetmu hilang di bus kota.", lp: -3 }
         ];
 
-        let currentRoomCode = null, myPlayerIndex = -1, roomRef = null, roomListener = null;
+        let currentRoomCode = null, myPlayerIndex = -1, channel = null;
         let seenRoll = 0, overShown = false, turnBonus = 0, busy = false, lastState = null, currentProp = null;
         const timers = {};
 
@@ -340,64 +330,177 @@
         window.addEventListener('DOMContentLoaded', () => {
             renderBoard();
             setRoomLabels('----');
-            const saved = localStorage.getItem('wna_session');
+            const saved = localStorage.getItem('wna_active_room');
             if (saved) {
                 try {
-                    const s = JSON.parse(saved);
-                    if (s && s.room && s.idx >= 0) {
-                        db.ref('rooms/' + s.room).once('value').then(snap => {
-                            if (snap.exists()) {
-                                myPlayerIndex = s.idx;
-                                connectRoom(s.room);
-                                closeLobbyModal();
-                            }
-                        });
-                    }
+                    const data = JSON.parse(saved);
+                    currentRoomCode = data.room; myPlayerIndex = data.idx;
+                    initChannel(currentRoomCode);
+                    closeLobbyModal();
+                    logEvent(`Memuat kembali sesi room ${currentRoomCode}`);
                 } catch(e) {}
             }
         });
 
-        function connectRoom(code) {
-            if (roomRef && roomListener) roomRef.off('value', roomListener);
-            Object.keys(timers).forEach(clearTimer);
-            currentRoomCode = code;
-            try { sessionStorage.setItem('wna_session', JSON.stringify({ room: code, idx: myPlayerIndex })); } catch(e){}
-            setRoomLabels(code);
-
-            roomRef = db.ref('rooms/' + code);
-            roomListener = roomRef.on('value', snap => {
-                const data = snap.val();
-                if (data) {
-                    updateGameStateUI(data);
-                } else {
-                    logEvent('Room telah ditutup atau kedaluwarsa.');
+        function initChannel(code) {
+            if (channel) channel.close();
+            channel = new BroadcastChannel('wna_room_' + code);
+            channel.onmessage = (event) => {
+                if (event.data && event.data.type === 'STATE_SYNC') {
+                    updateGameStateUI(event.data.state);
                 }
-            }, err => {
-                logEvent('Gagal menyinkronkan data room: ' + err.message);
+            };
+            const local = localStorage.getItem('wna_state_' + code);
+            if (local) {
+                try { updateGameStateUI(JSON.parse(local)); } catch(e){}
+            }
+        }
+
+        function broadcastState(state) {
+            localStorage.setItem('wna_state_' + currentRoomCode, JSON.stringify(state));
+            if (channel) channel.postMessage({ type: 'STATE_SYNC', state });
+            updateGameStateUI(state);
+        }
+
+        function renderBoard() {
+            const board = document.getElementById('board-grid');
+            board.querySelectorAll('.tile').forEach(t => t.remove());
+            let pos = [];
+            for (let c = 1; c <= 11; c++) pos.push({ col: c, row: 1 });
+            for (let r = 2; r <= 11; r++) pos.push({ col: 11, row: r });
+            for (let c = 10; c >= 1; c--) pos.push({ col: c, row: 11 });
+            for (let r = 10; r >= 2; r--) pos.push({ col: 1, row: r });
+
+            TILES_DATA.forEach((tile, idx) => {
+                const p = pos[idx];
+                const tileEl = document.createElement('div');
+                tileEl.className = 'tile';
+                tileEl.id = 'tile-' + tile.id;
+                tileEl.style.gridColumn = p.col;
+                tileEl.style.gridRow = p.row;
+                tileEl.onclick = () => renderTileDetails(tile.id);
+                let headerBg = '#334155';
+                if (tile.type === 'property') {
+                    if (tile.level === 1) headerBg = '#10B981';
+                    if (tile.level === 2) headerBg = '#06B6D4';
+                    if (tile.level === 3) headerBg = '#F59E0B';
+                }
+                tileEl.innerHTML = `
+                    <div class="tile-header" style="background-color: ${headerBg};">${tile.province || tile.type}</div>
+                    <div class="text-sm md:text-base my-auto">${tile.icon}</div>
+                    <div class="tile-title">${tile.name}</div>
+                    <div id="tokens-tile-${tile.id}" class="flex space-x-1 absolute bottom-1 left-1"></div>
+                `;
+                board.appendChild(tileEl);
             });
+        }
+
+        function setDiceTimerUI(l) {
+            document.getElementById('dice-timer-text').textContent = l == null ? '--' : l + 's';
+            document.getElementById('dice-timer-progress').style.width = l == null ? '100%' : (l * 10) + '%';
+            document.getElementById('btn-roll-dice').textContent = l == null ? '🎲 LEMPAR DADU' : `🎲 LEMPAR DADU (${l}s)`;
+        }
+
+        function animateDice(v, seq) {
+            const rots = [{x:0,y:0}, {x:0,y:-90}, {x:0,y:-180}, {x:0,y:90}, {x:-90,y:0}, {x:90,y:0}];
+            const r = rots[v - 1];
+            document.getElementById('dice-cube').style.transform = `rotateX(${r.x + 720 * seq}deg) rotateY(${r.y + 720 * seq}deg)`;
+        }
+
+        function updateGameStateUI(state) {
+            lastState = state;
+            const players = state.players || [];
+            const me = myPlayerIndex;
+
+            document.querySelectorAll('.player-token').forEach(el => el.remove());
+            players.forEach((p, idx) => {
+                const c = document.getElementById('tokens-tile-' + p.pos);
+                if (c) { const t = document.createElement('div'); t.className = 'player-token token-' + idx; t.title = p.name; c.appendChild(t); }
+            });
+
+            document.querySelectorAll('.tile').forEach(t => t.style.boxShadow = '');
+            Object.entries(state.properties || {}).forEach(([k, ownerIdx]) => {
+                const el = document.getElementById('tile-' + k.slice(1));
+                if (el) el.style.boxShadow = 'inset 0 0 0 3px ' + OWNER_COLORS[ownerIdx];
+            });
+
+            const list = document.getElementById('players-list-hud');
+            list.innerHTML = '';
+            players.forEach((p, idx) => {
+                const isActive = idx === state.activePlayerIndex;
+                const card = document.createElement('div');
+                card.className = `p-2 rounded-xl border flex justify-between items-center ${isActive ? 'bg-slate-800 border-amber-400' : 'bg-slate-900/60 border-slate-800'}`;
+                card.innerHTML = `
+                    <div class="flex items-center space-x-2">
+                        <div class="w-3 h-3 rounded-full token-${idx}"></div>
+                        <span class="text-xs font-bold text-white">${esc(p.name)}${idx === me ? ' (Anda)' : ''}${p.skip > 0 ? ' ⛓️' : ''}</span>
+                    </div>
+                    <span class="font-mono font-bold text-amber-400 text-xs">${Number(p.lp)} LP</span>`;
+                list.appendChild(card);
+            });
+
+            const active = players[state.activePlayerIndex] || players[0];
+            document.getElementById('turn-counter').textContent = `${state.currentRound} / ${state.turnLimit}`;
+            document.getElementById('active-player-name').textContent = active ? active.name : '-';
+
+            const started = !!state.isGameStarted, over = !!state.isGameOver;
+            document.getElementById('center-start-container').classList.toggle('hidden', started);
+            document.getElementById('center-room-box').classList.toggle('hidden', started);
+            document.getElementById('btn-start-the-game').classList.toggle('hidden', me !== 0);
+            document.getElementById('start-status-subtitle').textContent = me === 0
+                ? `Pemain bergabung: ${players.length}/${MAX_PLAYERS}. Klik mulai kalau sudah siap!`
+                : 'Menunggu host memulai game...';
+
+            const rollBtn = document.getElementById('btn-roll-dice');
+            const resultEl = document.getElementById('dice-result-text');
+            if (!started) { rollBtn.disabled = true; resultEl.textContent = 'Menunggu game dimulai...'; return; }
+
+            if (over) {
+                Object.keys(timers).forEach(clearTimer); setDiceTimerUI(null);
+                rollBtn.disabled = true;
+                const max = Math.max(...players.map(p => p.lp));
+                const winners = players.filter(p => p.lp === max).map(p => p.name).join(', ');
+                resultEl.textContent = `🏁 Game selesai! Pemenang: ${winners} (${max} LP)`;
+                if (!overShown) { overShown = true; logEvent(`🏁 Game selesai! Pemenang: ${winners} (${max} LP)`); }
+                return;
+            }
+
+            const isMyTurn = me === state.activePlayerIndex;
+            const canRoll = isMyTurn && state.phase === 'roll';
+            rollBtn.disabled = !canRoll;
+            resultEl.textContent = isMyTurn
+                ? (canRoll ? 'Giliran Anda! Silakan lempar dadu.' : 'Selesaikan tantangan di tile ini...')
+                : `Menunggu giliran ${active.name}...`;
+
+            if (state.lastRoll && state.lastRoll.seq !== seenRoll) { seenRoll = state.lastRoll.seq; animateDice(state.lastRoll.v, seenRoll); }
+
+            const key = currentRoomCode + '-' + state.currentRound + '-' + state.activePlayerIndex;
+            if (canRoll) {
+                if (window._diceKey !== key) { window._diceKey = key; runTimer('dice', 10, setDiceTimerUI, rollDiceAction); }
+            } else { clearTimer('dice'); setDiceTimerUI(null); }
+
+            if (isMyTurn && state.phase === 'event' && window._eventKey !== key) {
+                window._eventKey = key; turnBonus = 0;
+                triggerTileEvent(TILES_DATA[players[me].pos], state);
+            }
         }
 
         function createRoomOnline() {
             const name = cleanName(document.getElementById('input-host-name').value, 'Expat Host');
             const turns = parseInt(document.getElementById('select-turn-limit').value) || 20;
             const code = 'WNA-' + Math.floor(1000 + Math.random() * 9000);
-            
-            const initialState = {
+            const state = {
                 isGameStarted: false, isGameOver: false, turnLimit: turns, currentRound: 1,
                 activePlayerIndex: 0, phase: 'roll',
                 players: [{ id: 0, name, lp: 10, pos: 0, skip: 0 }], properties: {}
             };
-
-            db.ref('rooms/' + code).set(initialState, (error) => {
-                if (error) {
-                    alert('Gagal membuat room ke server: ' + error.message);
-                } else {
-                    myPlayerIndex = 0;
-                    connectRoom(code);
-                    closeLobbyModal();
-                    logEvent(`Room ${code} berhasil dibuat!`);
-                }
-            });
+            currentRoomCode = code; myPlayerIndex = 0;
+            localStorage.setItem('wna_active_room', JSON.stringify({ room: code, idx: 0 }));
+            initChannel(code);
+            broadcastState(state);
+            closeLobbyModal();
+            setRoomLabels(code);
+            logEvent(`Room ${code} berhasil dibuat!`);
         }
 
         function joinRoomOnline() {
@@ -405,38 +508,28 @@
             const code = document.getElementById('input-room-code').value.trim().toUpperCase();
             if (!code) { alert('Masukkan Kode Room!'); return; }
 
-            const roomRefCheck = db.ref('rooms/' + code);
-            roomRefCheck.transaction(room => {
-                if (!room) return room; // Batal jika room tidak ada
-                if (room.isGameStarted) return room; // Game sudah mulai
-                room.players = room.players || [];
-                if (room.players.length >= MAX_PLAYERS) return room;
-                
+            const local = localStorage.getItem('wna_state_' + code);
+            if (!local) { alert('Room tidak ditemukan di perangkat ini! Pastikan kode benar.'); return; }
+            try {
+                const room = JSON.parse(local);
+                if (room.isGameStarted) { alert('Game sudah dimulai.'); return; }
+                if (room.players.length >= MAX_PLAYERS) { alert('Room penuh.'); return; }
                 const idx = room.players.length;
                 room.players.push({ id: idx, name, lp: 10, pos: 0, skip: 0 });
-                return room;
-            }, (error, committed, snapshot) => {
-                if (error) {
-                    alert('Gagal bergabung: ' + error.message);
-                    return;
-                }
-                if (!committed || !snapshot.exists()) {
-                    alert('Room tidak ditemukan atau sudah penuh/mulai!');
-                    return;
-                }
-                const roomData = snapshot.val();
-                const joinedPlayer = roomData.players.find(p => p.name === name);
-                myPlayerIndex = joinedPlayer ? joinedPlayer.index || (roomData.players.length - 1) : roomData.players.length - 1;
-                
-                connectRoom(code);
+                currentRoomCode = code; myPlayerIndex = idx;
+                localStorage.setItem('wna_active_room', JSON.stringify({ room: code, idx }));
+                initChannel(code);
+                broadcastState(room);
                 closeLobbyModal();
+                setRoomLabels(code);
                 logEvent(`Berhasil bergabung ke room ${code}!`);
-            });
+            } catch(e) { alert('Gagal bergabung.'); }
         }
 
         function startOnlineGame() {
-            if (myPlayerIndex !== 0 || !roomRef) return;
-            roomRef.update({ isGameStarted: true, phase: 'roll' });
+            if (myPlayerIndex !== 0 || !lastState) return;
+            lastState.isGameStarted = true; lastState.phase = 'roll';
+            broadcastState(lastState);
             logEvent('🚀 Game dimulai!');
         }
 
@@ -454,46 +547,34 @@
         }
 
         function rollDiceAction() {
-            if (busy || !roomRef) return;
+            if (busy || !lastState) return;
             busy = true; clearTimer('dice');
             const v = Math.floor(Math.random() * 6) + 1;
-            
-            roomRef.transaction(room => {
-                if (!room || room.phase !== 'roll' || room.activePlayerIndex !== myPlayerIndex) return room;
-                const p = room.players[myPlayerIndex];
-                const np = p.pos + v;
-                const passed = np >= TILES_DATA.length;
-                if (passed) p.lp += 5;
-                p.pos = np % TILES_DATA.length;
-                room.phase = 'event';
-                room.lastRoll = { v, seq: ((room.lastRoll && room.lastRoll.seq) || 0) + 1 };
-                return room;
-            }, (err, committed, snap) => {
-                busy = false;
-                if (err) logEvent('Gagal lempar dadu: ' + err.message);
-                else if (committed) logEvent(`Melempar dadu: ${v}`);
-            });
+            const p = lastState.players[myPlayerIndex];
+            const np = p.pos + v;
+            const passed = np >= TILES_DATA.length;
+            if (passed) p.lp += 5;
+            p.pos = np % TILES_DATA.length;
+            lastState.phase = 'event';
+            lastState.lastRoll = { v, seq: (lastState.lastRoll ? lastState.lastRoll.seq : 0) + 1 };
+            broadcastState(lastState);
+            busy = false;
+            logEvent(`Anda melempar ${v}${passed ? ' dan melewati START (+5 LP)' : ''}.`);
         }
 
         function finishTurn(mut, msg) {
-            if (busy || !roomRef) return;
+            if (busy || !lastState) return;
             busy = true; clearTimer('quiz'); clearTimer('prop');
             const bonus = turnBonus; turnBonus = 0;
-            
-            roomRef.transaction(room => {
-                if (!room || room.phase !== 'event' || room.activePlayerIndex !== myPlayerIndex) return room;
-                const p = room.players[myPlayerIndex];
-                p.lp = Math.max(0, p.lp + bonus);
-                if (mut) mut(p, room);
-                p.lp = Math.max(0, p.lp);
-                advanceTurn(room);
-                room.phase = 'roll';
-                return room;
-            }, err => {
-                busy = false;
-                if (err) logEvent('Gagal menyudahi giliran: ' + err.message);
-                if (msg) logEvent(msg);
-            });
+            const p = lastState.players[myPlayerIndex];
+            p.lp = Math.max(0, p.lp + bonus);
+            if (mut) mut(p, lastState);
+            p.lp = Math.max(0, p.lp);
+            advanceTurn(lastState);
+            lastState.phase = 'roll';
+            broadcastState(lastState);
+            busy = false;
+            if (msg) logEvent(msg);
         }
 
         function triggerTileEvent(tile, state) {
@@ -619,129 +700,6 @@
             if (!currentProp) return;
             closePropModal(); currentProp = null;
             finishTurn(null, 'Melewatkan properti.');
-        }
-
-        function renderBoard() {
-            const board = document.getElementById('board-grid');
-            board.querySelectorAll('.tile').forEach(t => t.remove());
-            let pos = [];
-            for (let c = 1; c <= 11; c++) pos.push({ col: c, row: 1 });
-            for (let r = 2; r <= 11; r++) pos.push({ col: 11, row: r });
-            for (let c = 10; c >= 1; c--) pos.push({ col: c, row: 11 });
-            for (let r = 10; r >= 2; r--) pos.push({ col: 1, row: r });
-
-            TILES_DATA.forEach((tile, idx) => {
-                const p = pos[idx];
-                const tileEl = document.createElement('div');
-                tileEl.className = 'tile';
-                tileEl.id = 'tile-' + tile.id;
-                tileEl.style.gridColumn = p.col;
-                tileEl.style.gridRow = p.row;
-                tileEl.onclick = () => renderTileDetails(tile.id);
-                let headerBg = '#334155';
-                if (tile.type === 'property') {
-                    if (tile.level === 1) headerBg = '#10B981';
-                    if (tile.level === 2) headerBg = '#06B6D4';
-                    if (tile.level === 3) headerBg = '#F59E0B';
-                }
-                tileEl.innerHTML = `
-                    <div class="tile-header" style="background-color: ${headerBg};">${tile.province || tile.type}</div>
-                    <div class="text-sm md:text-base my-auto">${tile.icon}</div>
-                    <div class="tile-title">${tile.name}</div>
-                    <div id="tokens-tile-${tile.id}" class="flex space-x-1 absolute bottom-1 left-1"></div>
-                `;
-                board.appendChild(tileEl);
-            });
-        }
-
-        function setDiceTimerUI(l) {
-            document.getElementById('dice-timer-text').textContent = l == null ? '--' : l + 's';
-            document.getElementById('dice-timer-progress').style.width = l == null ? '100%' : (l * 10) + '%';
-            document.getElementById('btn-roll-dice').textContent = l == null ? '🎲 LEMPAR DADU' : `🎲 LEMPAR DADU (${l}s)`;
-        }
-
-        function animateDice(v, seq) {
-            const rots = [{x:0,y:0}, {x:0,y:-90}, {x:0,y:-180}, {x:0,y:90}, {x:-90,y:0}, {x:90,y:0}];
-            const r = rots[v - 1];
-            document.getElementById('dice-cube').style.transform = `rotateX(${r.x + 720 * seq}deg) rotateY(${r.y + 720 * seq}deg)`;
-        }
-
-        function updateGameStateUI(state) {
-            lastState = state;
-            const players = state.players || [];
-            const me = myPlayerIndex;
-
-            document.querySelectorAll('.player-token').forEach(el => el.remove());
-            players.forEach((p, idx) => {
-                const c = document.getElementById('tokens-tile-' + p.pos);
-                if (c) { const t = document.createElement('div'); t.className = 'player-token token-' + idx; t.title = p.name; c.appendChild(t); }
-            });
-
-            document.querySelectorAll('.tile').forEach(t => t.style.boxShadow = '');
-            Object.entries(state.properties || {}).forEach(([k, ownerIdx]) => {
-                const el = document.getElementById('tile-' + k.slice(1));
-                if (el) el.style.boxShadow = 'inset 0 0 0 3px ' + OWNER_COLORS[ownerIdx];
-            });
-
-            const list = document.getElementById('players-list-hud');
-            list.innerHTML = '';
-            players.forEach((p, idx) => {
-                const isActive = idx === state.activePlayerIndex;
-                const card = document.createElement('div');
-                card.className = `p-2 rounded-xl border flex justify-between items-center ${isActive ? 'bg-slate-800 border-amber-400' : 'bg-slate-900/60 border-slate-800'}`;
-                card.innerHTML = `
-                    <div class="flex items-center space-x-2">
-                        <div class="w-3 h-3 rounded-full token-${idx}"></div>
-                        <span class="text-xs font-bold text-white">${esc(p.name)}${idx === me ? ' (Anda)' : ''}${p.skip > 0 ? ' ⛓️' : ''}</span>
-                    </div>
-                    <span class="font-mono font-bold text-amber-400 text-xs">${Number(p.lp)} LP</span>`;
-                list.appendChild(card);
-            });
-
-            const active = players[state.activePlayerIndex] || players[0];
-            document.getElementById('turn-counter').textContent = `${state.currentRound} / ${state.turnLimit}`;
-            document.getElementById('active-player-name').textContent = active ? active.name : '-';
-
-            const started = !!state.isGameStarted, over = !!state.isGameOver;
-            document.getElementById('center-start-container').classList.toggle('hidden', started);
-            document.getElementById('center-room-box').classList.toggle('hidden', started);
-            document.getElementById('btn-start-the-game').classList.toggle('hidden', me !== 0);
-            document.getElementById('start-status-subtitle').textContent = me === 0
-                ? `Pemain bergabung: ${players.length}/${MAX_PLAYERS}. Klik mulai kalau sudah siap!`
-                : 'Menunggu host memulai game...';
-
-            const rollBtn = document.getElementById('btn-roll-dice');
-            const resultEl = document.getElementById('dice-result-text');
-            if (!started) { rollBtn.disabled = true; resultEl.textContent = 'Menunggu game dimulai...'; return; }
-
-            if (over) {
-                Object.keys(timers).forEach(clearTimer); setDiceTimerUI(null);
-                rollBtn.disabled = true;
-                const max = Math.max(...players.map(p => p.lp));
-                const winners = players.filter(p => p.lp === max).map(p => p.name).join(', ');
-                resultEl.textContent = `🏁 Game selesai! Pemenang: ${winners} (${max} LP)`;
-                if (!overShown) { overShown = true; logEvent(`🏁 Game selesai! Pemenang: ${winners} (${max} LP)`); }
-                return;
-            }
-
-            const isMyTurn = me === state.activePlayerIndex;
-            const canRoll = isMyTurn && state.phase === 'roll';
-            rollBtn.disabled = !canRoll;
-            resultEl.textContent = isMyTurn
-                ? (canRoll ? 'Giliran Anda! Silakan lempar dadu.' : 'Selesaikan tantangan di tile ini...')
-                : `Menunggu giliran ${active.name}...`;
-
-            if (state.lastRoll && state.lastRoll.seq !== seenRoll) { seenRoll = state.lastRoll.seq; animateDice(state.lastRoll.v, seenRoll); }
-
-            const key = currentRoomCode + '-' + state.currentRound + '-' + state.activePlayerIndex;
-            if (canRoll) {
-                if (window._diceKey !== key) { window._diceKey = key; runTimer('dice', 10, setDiceTimerUI, rollDiceAction); }
-            } else { clearTimer('dice'); setDiceTimerUI(null); }
-
-            if (isMyTurn && state.phase === 'event' && window._eventKey !== key) {
-                window._eventKey = key; turnBonus = 0;
-                triggerTileEvent(TILES_DATA[players[me].pos], state);
-            }
         }
 
         function renderTileDetails(tileId) {
